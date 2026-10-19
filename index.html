@@ -312,7 +312,9 @@
   </footer>
 
   <script>
-    const CONFIG_URL = 'https://raw.githubusercontent.com/manasesmg2000/live-stream-site/main/config.json';
+    // Usamos la GitHub API en lugar de raw.githubusercontent.com
+    // para evitar el caché CDN que puede tardar varios minutos en actualizarse.
+    const CONFIG_API_URL = 'https://api.github.com/repos/manasesmg2000/live-stream-site/contents/config.json';
 
     function extractVideoId(input) {
       input = input.trim();
@@ -332,7 +334,12 @@
 
     async function loadConfig() {
       try {
-        const res = await fetch(CONFIG_URL + '?nocache=' + Date.now());
+        // Accept: raw devuelve el contenido directo, sin base64 y sin caché CDN
+        const res = await fetch(CONFIG_API_URL, {
+          headers: { 'Accept': 'application/vnd.github.v3.raw' },
+          cache: 'no-store',
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const cfg = await res.json();
 
         const noLive        = document.getElementById('no-live');
