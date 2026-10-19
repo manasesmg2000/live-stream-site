@@ -312,10 +312,6 @@
   </footer>
 
   <script>
-    // Usamos la GitHub API en lugar de raw.githubusercontent.com
-    // para evitar el caché CDN que puede tardar varios minutos en actualizarse.
-    const CONFIG_API_URL = 'https://api.github.com/repos/manasesmg2000/live-stream-site/contents/config.json';
-
     function extractVideoId(input) {
       input = input.trim();
       if (/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
