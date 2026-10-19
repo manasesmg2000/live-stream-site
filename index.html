@@ -332,34 +332,48 @@
       return input;
     }
 
+    let currentLiveState = null;
+    let currentVideoId   = null;
+
     async function loadConfig() {
       let cfg = null;
+
+      // 1. Consultar archivo raw con timestamp único anti-caché
       try {
-        // 1. Intentar API directa (instantáneo, sin caché)
-        const res = await fetch(CONFIG_API_URL, {
-          headers: { 'Accept': 'application/vnd.github.v3.raw' },
+        const res = await fetch(`https://raw.githubusercontent.com/manasesmg2000/live-stream-site/main/config.json?nocache=${Date.now()}`, {
           cache: 'no-store',
         });
         if (res.ok) {
           cfg = await res.json();
         }
       } catch (e) {
-        console.warn('Fallo API de GitHub, intentando fallback:', e);
+        console.warn('Error en raw fetch:', e);
       }
 
-      // 2. Fallback a URL raw con timestamp
+      // 2. Fallback a la API de GitHub si fuera necesario
       if (!cfg) {
         try {
-          const resRaw = await fetch('https://raw.githubusercontent.com/manasesmg2000/live-stream-site/main/config.json?t=' + Date.now());
-          if (resRaw.ok) {
-            cfg = await resRaw.json();
+          const resApi = await fetch(CONFIG_API_URL, {
+            headers: { 'Accept': 'application/vnd.github.v3.raw' },
+            cache: 'no-store',
+          });
+          if (resApi.ok) {
+            cfg = await resApi.json();
           }
         } catch (e) {
-          console.error('Error cargando config.json:', e);
+          console.error('Error cargando config:', e);
         }
       }
 
       if (!cfg) return;
+
+      // Si el estado no ha cambiado, no tocar el reproductor para evitar parpadeos
+      if (cfg.live === currentLiveState && cfg.videoId === currentVideoId) {
+        return;
+      }
+
+      currentLiveState = cfg.live;
+      currentVideoId   = cfg.videoId;
 
       const noLive        = document.getElementById('no-live');
       const liveContainer = document.getElementById('live-container');
@@ -372,10 +386,7 @@
         noLive.classList.add('hidden');
         liveContainer.classList.remove('hidden');
         badge.classList.remove('hidden');
-        const newSrc = `https://www.youtube.com/embed/${vid}?autoplay=1`;
-        if (iframe.src !== newSrc) {
-          iframe.src = newSrc;
-        }
+        iframe.src = `https://www.youtube.com/embed/${vid}?autoplay=1`;
         info.textContent = `ID del directo: ${vid}`;
         document.title = '🔴 Directo — Iglesia de Pan Bendito';
       } else {
@@ -387,8 +398,17 @@
       }
     }
 
+    // Comprobación inicial
     loadConfig();
-    setInterval(loadConfig, 60000);
+
+    // Comprobar automáticamente cada 5 segundos
+    setInterval(loadConfig, 5000);
+
+    // Comprobar al volver a la pestaña
+    window.addEventListener('focus', loadConfig);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) loadConfig();
+    });
   </script>
 </body>
 </html>
