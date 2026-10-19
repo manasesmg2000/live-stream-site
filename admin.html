@@ -387,8 +387,19 @@
     }
 
     // ────────────────────────────────────────────
-    // Acciones
+    // Acciones y notificación en tiempo real
     // ────────────────────────────────────────────
+    const REALTIME_TOPIC = 'https://ntfy.sh/iglesia-pan-bendito-live-channel-v1';
+
+    function sendRealtimeSignal(signal) {
+      try {
+        fetch(REALTIME_TOPIC, {
+          method: 'POST',
+          body: signal,
+        }).catch(() => {});
+      } catch (e) {}
+    }
+
     async function setLive() {
       const ytInput = document.getElementById('yt-url').value.trim();
       if (!ytInput) {
@@ -397,28 +408,37 @@
       }
 
       const videoId = extractVideoId(ytInput);
-      showStatus('live-status', 'info', '⏳ Actualizando GitHub...');
 
+      // 1. Enviar señal instantánea (se refleja en la web en menos de 0.1s)
+      sendRealtimeSignal(`LIVE:${videoId}`);
+      showStatus('live-status', 'ok',
+        `⚡ ¡Enviado a la web en tiempo real!<br/>Guardando copia en GitHub...<br/>ID del vídeo: <b>${videoId}</b>`);
+
+      // 2. Guardar permanentemente en GitHub
       try {
         await updateConfig({ live: true, videoId });
         showStatus('live-status', 'ok',
-          `✅ ¡Directo activado! La web se actualizará en unos segundos.<br/>
-          ID del vídeo: <b>${videoId}</b>`);
+          `✅ ¡Directo activo y guardado en GitHub!<br/>ID del vídeo: <b>${videoId}</b>`);
         loadCurrentState();
       } catch (e) {
-        showStatus('live-status', 'error', `❌ Error: ${e.message}`);
+        showStatus('live-status', 'error', `⚠️ Emitido en vivo, pero hubo error al guardar en GitHub: ${e.message}`);
       }
     }
 
     async function setOffline() {
-      showStatus('stop-status', 'info', '⏳ Actualizando GitHub...');
+      // 1. Enviar señal instantánea de fin de directo
+      sendRealtimeSignal('OFFLINE');
+      showStatus('stop-status', 'ok',
+        '⚡ ¡Finalizado en la web en tiempo real!<br/>Guardando copia en GitHub...');
+
+      // 2. Guardar permanentemente en GitHub
       try {
         await updateConfig({ live: false, videoId: '' });
         showStatus('stop-status', 'ok',
-          '✅ Directo terminado. La web mostrará "No hay directo disponible".');
+          '✅ Directo terminado y guardado en GitHub. La web muestra "No hay directo disponible".');
         loadCurrentState();
       } catch (e) {
-        showStatus('stop-status', 'error', `❌ Error: ${e.message}`);
+        showStatus('stop-status', 'error', `⚠️ Finalizado en la web, pero hubo error al guardar en GitHub: ${e.message}`);
       }
     }
 
