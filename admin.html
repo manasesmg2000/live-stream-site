@@ -276,24 +276,26 @@
     const CONFIG_PATH = 'config.json';
 
     async function getFileInfo(s) {
-      const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${CONFIG_PATH}?ref=${s.branch}`;
+      // _t timestamp y cache: no-store para evitar que el navegador guarde el SHA en caché
+      const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${CONFIG_PATH}?ref=${encodeURIComponent(s.branch)}&_t=${Date.now()}`;
       const res = await fetch(url, {
         headers: {
           'Authorization': `token ${s.token}`,
           'Accept': 'application/vnd.github.v3+json',
         },
+        cache: 'no-store',
       });
       if (!res.ok) throw new Error(`GitHub API error ${res.status}: ${await res.text()}`);
       return await res.json();
     }
 
-    async function updateConfig(newConfig) {
+    async function updateConfig(newConfig, retryCount = 0) {
       const s = getSettings();
       if (!s.user || !s.repo || !s.token) {
         throw new Error('Configura primero el usuario, repositorio y token de GitHub.');
       }
 
-      // Obtener el SHA actual del archivo
+      // Obtener el SHA actual y fresco del archivo
       const fileInfo = await getFileInfo(s);
       const sha = fileInfo.sha;
 
@@ -321,7 +323,16 @@
         }),
       });
 
-      if (!res.ok) throw new Error(`Error al actualizar: ${res.status} ${await res.text()}`);
+      if (!res.ok) {
+        const errorText = await res.text();
+        // Si hay conflicto 409 (SHA desincronizado), reintentar automáticamente con el SHA más reciente
+        if (res.status === 409 && retryCount < 2) {
+          console.warn('Conflicto 409 detectado, reintentando con SHA fresco...');
+          await new Promise(r => setTimeout(r, 600));
+          return await updateConfig(newConfig, retryCount + 1);
+        }
+        throw new Error(`Error al actualizar: ${res.status} ${errorText}`);
+      }
       return await res.json();
     }
 
