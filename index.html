@@ -333,38 +333,57 @@
     }
 
     async function loadConfig() {
+      let cfg = null;
       try {
-        // Accept: raw devuelve el contenido directo, sin base64 y sin caché CDN
+        // 1. Intentar API directa (instantáneo, sin caché)
         const res = await fetch(CONFIG_API_URL, {
           headers: { 'Accept': 'application/vnd.github.v3.raw' },
           cache: 'no-store',
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const cfg = await res.json();
-
-        const noLive        = document.getElementById('no-live');
-        const liveContainer = document.getElementById('live-container');
-        const badge         = document.getElementById('badge');
-        const iframe        = document.getElementById('yt-iframe');
-        const info          = document.getElementById('stream-info');
-
-        if (cfg.live && cfg.videoId) {
-          const vid = extractVideoId(cfg.videoId);
-          noLive.classList.add('hidden');
-          liveContainer.classList.remove('hidden');
-          badge.classList.remove('hidden');
-          iframe.src = `https://www.youtube.com/embed/${vid}?autoplay=1`;
-          info.textContent = `ID del vídeo: ${vid}`;
-          document.title = '🔴 Directo — Iglesia de Pan Bendito';
-        } else {
-          noLive.classList.remove('hidden');
-          liveContainer.classList.add('hidden');
-          badge.classList.add('hidden');
-          iframe.src = '';
-          document.title = 'Iglesia de Pan Bendito — Directo';
+        if (res.ok) {
+          cfg = await res.json();
         }
       } catch (e) {
-        console.error('No se pudo cargar config.json:', e);
+        console.warn('Fallo API de GitHub, intentando fallback:', e);
+      }
+
+      // 2. Fallback a URL raw con timestamp
+      if (!cfg) {
+        try {
+          const resRaw = await fetch('https://raw.githubusercontent.com/manasesmg2000/live-stream-site/main/config.json?t=' + Date.now());
+          if (resRaw.ok) {
+            cfg = await resRaw.json();
+          }
+        } catch (e) {
+          console.error('Error cargando config.json:', e);
+        }
+      }
+
+      if (!cfg) return;
+
+      const noLive        = document.getElementById('no-live');
+      const liveContainer = document.getElementById('live-container');
+      const badge         = document.getElementById('badge');
+      const iframe        = document.getElementById('yt-iframe');
+      const info          = document.getElementById('stream-info');
+
+      if (cfg.live && cfg.videoId) {
+        const vid = extractVideoId(cfg.videoId);
+        noLive.classList.add('hidden');
+        liveContainer.classList.remove('hidden');
+        badge.classList.remove('hidden');
+        const newSrc = `https://www.youtube.com/embed/${vid}?autoplay=1`;
+        if (iframe.src !== newSrc) {
+          iframe.src = newSrc;
+        }
+        info.textContent = `ID del directo: ${vid}`;
+        document.title = '🔴 Directo — Iglesia de Pan Bendito';
+      } else {
+        noLive.classList.remove('hidden');
+        liveContainer.classList.add('hidden');
+        badge.classList.add('hidden');
+        iframe.src = '';
+        document.title = 'Iglesia de Pan Bendito — Directo';
       }
     }
 
