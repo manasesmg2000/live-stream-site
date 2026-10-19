@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Gestionar Directo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #111;
+      color: #f0f0f0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 40px 16px;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+      color: #fff;
+    }
+    h1 span { color: #ff0000; }
+
+    .subtitle {
+      font-size: 0.9rem;
+      opacity: 0.5;
+      margin-bottom: 36px;
+      text-align: center;
+    }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 14px;
+      padding: 28px 30px;
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 1px solid #2a2a2a;
+      padding-bottom: 10px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: #bbb;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      background: #0f0f0f;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.95rem;
+      padding: 11px 14px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    input:focus { border-color: #ff0000; }
+
+    .help {
+      font-size: 0.78rem;
+      color: #555;
+      margin-top: -10px;
+    }
+    .help a { color: #ff6666; }
+
+    .btn {
+      border: none;
+      border-radius: 8px;
+      padding: 13px 22px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+      width: 100%;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-live  { background: #ff0000; color: #fff; }
+    .btn-live:hover:not(:disabled)  { background: #cc0000; }
+
+    .btn-stop  { background: #333; color: #fff; border: 1px solid #555; }
+    .btn-stop:hover:not(:disabled)  { background: #444; }
+
+    .btn-save-token { background: #1e3a5f; color: #7eb8ff; border: 1px solid #2a5a9f; }
+    .btn-save-token:hover { background: #2a4f7a; }
+
+    .status-box {
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-align: center;
+      display: none;
+    }
+    .status-box.ok    { background: #0d2e1a; color: #4caf50; border: 1px solid #2e7d32; }
+    .status-box.error { background: #2e0d0d; color: #f44336; border: 1px solid #b71c1c; }
+    .status-box.info  { background: #1a1f2e; color: #90caf9; border: 1px solid #1565c0; }
+    .status-box.visible { display: block; }
+
+    .current-state {
+      background: #0f0f0f;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.85rem;
+      color: #888;
+      text-align: center;
+    }
+    .current-state b { color: #fff; }
+    .dot-live { color: #ff0000; }
+    .dot-off  { color: #666; }
+
+    .separator {
+      border: none;
+      border-top: 1px solid #2a2a2a;
+      margin: 0;
+    }
+
+    #loading {
+      font-size: 0.8rem;
+      color: #555;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎥 Admin <span>Directo</span></h1>
+  <p class="subtitle">Panel local para gestionar el directo en GitHub Pages</p>
+
+  <!-- ── Configuración de GitHub ── -->
+  <div class="card">
+    <h2>⚙️ Configuración de GitHub</h2>
+
+    <div>
+      <label>Usuario de GitHub</label>
+      <input type="text" id="gh-user" placeholder="tu-usuario" />
+    </div>
+
+    <div>
+      <label>Nombre del repositorio</label>
+      <input type="text" id="gh-repo" placeholder="nombre-del-repo" />
+    </div>
+
+    <div>
+      <label>Rama (normalmente <b>main</b>)</label>
+      <input type="text" id="gh-branch" value="main" placeholder="main" />
+    </div>
+
+    <div>
+      <label>Token personal de GitHub</label>
+      <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
+      <p class="help">
+        Crea uno en
+        <a href="https://github.com/settings/tokens/new" target="_blank">
+          github.com/settings/tokens
+        </a>
+        con permiso <b>repo → Contents (write)</b>.
+        Se guarda solo en tu navegador (localStorage).
+      </p>
+    </div>
+
+    <button class="btn btn-save-token" onclick="saveSettings()">💾 Guardar configuración</button>
+
+    <div id="settings-status" class="status-box"></div>
+  </div>
+
+  <!-- ── Estado actual ── -->
+  <div class="card">
+    <h2>📡 Estado actual</h2>
+    <div class="current-state" id="current-state">
+      <span id="loading">Cargando...</span>
+    </div>
+  </div>
+
+  <!-- ── Activar directo ── -->
+  <div class="card">
+    <h2>🔴 Activar directo</h2>
+
+    <div>
+      <label>URL o ID del vídeo de YouTube</label>
+      <input
+        type="text"
+        id="yt-url"
+        placeholder="https://www.youtube.com/watch?v=XXXXXXXXXXX"
+      />
+      <p class="help">Puedes pegar el enlace completo del directo de YouTube.</p>
+    </div>
+
+    <button class="btn btn-live" onclick="setLive()">▶ Activar directo</button>
+    <div id="live-status" class="status-box"></div>
+  </div>
+
+  <!-- ── Desactivar directo ── -->
+  <div class="card">
+    <h2>⛔ Terminar directo</h2>
+    <p style="font-size:0.85rem;color:#888;">
+      Pulsa este botón cuando el directo termine. La web mostrará el mensaje
+      "No hay directo disponible".
+    </p>
+    <button class="btn btn-stop" onclick="setOffline()">⏹ Terminar directo</button>
+    <div id="stop-status" class="status-box"></div>
+  </div>
+
+  <script>
+    // ────────────────────────────────────────────
+    // Persistencia en localStorage
+    // ────────────────────────────────────────────
+    const KEYS = {
+      user:   'gh_user',
+      repo:   'gh_repo',
+      branch: 'gh_branch',
+      token:  'gh_token',
+    };
+
+    function loadSettings() {
+      document.getElementById('gh-user').value   = localStorage.getItem(KEYS.user)   || '';
+      document.getElementById('gh-repo').value   = localStorage.getItem(KEYS.repo)   || '';
+      document.getElementById('gh-branch').value = localStorage.getItem(KEYS.branch) || 'main';
+      document.getElementById('gh-token').value  = localStorage.getItem(KEYS.token)  || '';
+    }
+
+    function saveSettings() {
+      const u = document.getElementById('gh-user').value.trim();
+      const r = document.getElementById('gh-repo').value.trim();
+      const b = document.getElementById('gh-branch').value.trim() || 'main';
+      const t = document.getElementById('gh-token').value.trim();
+
+      if (!u || !r || !t) {
+        showStatus('settings-status', 'error', '⚠️ Rellena usuario, repositorio y token.');
+        return;
+      }
+      localStorage.setItem(KEYS.user,   u);
+      localStorage.setItem(KEYS.repo,   r);
+      localStorage.setItem(KEYS.branch, b);
+      localStorage.setItem(KEYS.token,  t);
+      showStatus('settings-status', 'ok', '✅ Configuración guardada correctamente.');
+      loadCurrentState();
+    }
+
+    function getSettings() {
+      return {
+        user:   localStorage.getItem(KEYS.user)   || '',
+        repo:   localStorage.getItem(KEYS.repo)   || '',
+        branch: localStorage.getItem(KEYS.branch) || 'main',
+        token:  localStorage.getItem(KEYS.token)  || '',
+      };
+    }
+
+    // ────────────────────────────────────────────
+    // GitHub API helpers
+    // ────────────────────────────────────────────
+    const CONFIG_PATH = 'config.json';
+
+    async function getFileInfo(s) {
+      const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${CONFIG_PATH}?ref=${s.branch}`;
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': `token ${s.token}`,
+          'Accept': 'application/vnd.github.v3+json',
+        },
+      });
+      if (!res.ok) throw new Error(`GitHub API error ${res.status}: ${await res.text()}`);
+      return await res.json();
+    }
+
+    async function updateConfig(newConfig) {
+      const s = getSettings();
+      if (!s.user || !s.repo || !s.token) {
+        throw new Error('Configura primero el usuario, repositorio y token de GitHub.');
+      }
+
+      // Obtener el SHA actual del archivo
+      const fileInfo = await getFileInfo(s);
+      const sha = fileInfo.sha;
+
+      // Codificar el nuevo contenido en base64
+      const content = btoa(unescape(encodeURIComponent(
+        JSON.stringify(newConfig, null, 2) + '\n'
+      )));
+
+      // Actualizar el archivo en GitHub
+      const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${CONFIG_PATH}`;
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${s.token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: newConfig.live
+            ? `🔴 Activar directo: ${newConfig.videoId}`
+            : '⏹ Terminar directo',
+          content,
+          sha,
+          branch: s.branch,
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Error al actualizar: ${res.status} ${await res.text()}`);
+      return await res.json();
+    }
+
+    // ────────────────────────────────────────────
+    // Extraer ID de YouTube de una URL
+    // ────────────────────────────────────────────
+    function extractVideoId(input) {
+      input = input.trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
+      const patterns = [
+        /[?&]v=([a-zA-Z0-9_-]{11})/,
+        /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+        /embed\/([a-zA-Z0-9_-]{11})/,
+        /live\/([a-zA-Z0-9_-]{11})/,
+      ];
+      for (const p of patterns) {
+        const m = input.match(p);
+        if (m) return m[1];
+      }
+      return input;
+    }
+
+    // ────────────────────────────────────────────
+    // Mostrar estado actual
+    // ────────────────────────────────────────────
+    async function loadCurrentState() {
+      const s = getSettings();
+      const el = document.getElementById('current-state');
+
+      if (!s.user || !s.repo || !s.token) {
+        el.innerHTML = '<span style="color:#666">Configura GitHub para ver el estado.</span>';
+        return;
+      }
+
+      try {
+        const fileInfo = await getFileInfo(s);
+        const decoded = decodeURIComponent(escape(atob(fileInfo.content.replace(/\n/g,''))));
+        const cfg = JSON.parse(decoded);
+
+        if (cfg.live && cfg.videoId) {
+          const vid = extractVideoId(cfg.videoId);
+          el.innerHTML = `
+            <span class="dot-live">●</span>
+            <b> EN DIRECTO</b><br/>
+            <span style="font-size:0.8rem;color:#666">ID: ${vid}</span>`;
+        } else {
+          el.innerHTML = `<span class="dot-off">●</span> <b>Sin directo</b> — mostrando pantalla de espera`;
+        }
+      } catch (e) {
+        el.innerHTML = `<span style="color:#f44336">Error al leer estado: ${e.message}</span>`;
+      }
+    }
+
+    // ────────────────────────────────────────────
+    // Acciones
+    // ────────────────────────────────────────────
+    async function setLive() {
+      const ytInput = document.getElementById('yt-url').value.trim();
+      if (!ytInput) {
+        showStatus('live-status', 'error', '⚠️ Introduce la URL o ID del vídeo de YouTube.');
+        return;
+      }
+
+      const videoId = extractVideoId(ytInput);
+      showStatus('live-status', 'info', '⏳ Actualizando GitHub...');
+
+      try {
+        await updateConfig({ live: true, videoId });
+        showStatus('live-status', 'ok',
+          `✅ ¡Directo activado! La web se actualizará en unos segundos.<br/>
+          ID del vídeo: <b>${videoId}</b>`);
+        loadCurrentState();
+      } catch (e) {
+        showStatus('live-status', 'error', `❌ Error: ${e.message}`);
+      }
+    }
+
+    async function setOffline() {
+      showStatus('stop-status', 'info', '⏳ Actualizando GitHub...');
+      try {
+        await updateConfig({ live: false, videoId: '' });
+        showStatus('stop-status', 'ok',
+          '✅ Directo terminado. La web mostrará "No hay directo disponible".');
+        loadCurrentState();
+      } catch (e) {
+        showStatus('stop-status', 'error', `❌ Error: ${e.message}`);
+      }
+    }
+
+    // ────────────────────────────────────────────
+    // UI helpers
+    // ────────────────────────────────────────────
+    function showStatus(id, type, html) {
+      const el = document.getElementById(id);
+      el.className = `status-box ${type} visible`;
+      el.innerHTML = html;
+    }
+
+    // ────────────────────────────────────────────
+    // Init
+    // ────────────────────────────────────────────
+    loadSettings();
+    loadCurrentState();
+  </script>
+</body>
+</html>
