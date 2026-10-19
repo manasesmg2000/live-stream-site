@@ -332,33 +332,36 @@
       return input;
     }
 
+    const CONFIG_API_URL = 'https://api.github.com/repos/manasesmg2000/live-stream-site/contents/config.json?ref=main';
+
     let currentLiveState = null;
     let currentVideoId   = null;
+    let pollTimer        = null;
 
     async function loadConfig() {
       let cfg = null;
 
-      // 1. Consultar archivo raw con timestamp único anti-caché
+      // 1. Consultar la API de GitHub en tiempo real (instantáneo, sin caché CDN)
       try {
-        const res = await fetch(`https://raw.githubusercontent.com/manasesmg2000/live-stream-site/main/config.json?nocache=${Date.now()}`, {
+        const res = await fetch(`${CONFIG_API_URL}&_t=${Date.now()}`, {
+          headers: { 'Accept': 'application/vnd.github.v3.raw' },
           cache: 'no-store',
         });
         if (res.ok) {
           cfg = await res.json();
         }
       } catch (e) {
-        console.warn('Error en raw fetch:', e);
+        console.warn('API error, usando fallback Pages:', e);
       }
 
-      // 2. Fallback a la API de GitHub si fuera necesario
+      // 2. Si la API falla (ej. límite de peticiones), consultar config.json de Pages
       if (!cfg) {
         try {
-          const resApi = await fetch(CONFIG_API_URL, {
-            headers: { 'Accept': 'application/vnd.github.v3.raw' },
+          const resPages = await fetch(`./config.json?_t=${Date.now()}`, {
             cache: 'no-store',
           });
-          if (resApi.ok) {
-            cfg = await resApi.json();
+          if (resPages.ok) {
+            cfg = await resPages.json();
           }
         } catch (e) {
           console.error('Error cargando config:', e);
@@ -367,8 +370,9 @@
 
       if (!cfg) return;
 
-      // Si el estado no ha cambiado, no tocar el reproductor para evitar parpadeos
+      // Si no hay cambios de estado, no tocar el reproductor para evitar reinicios
       if (cfg.live === currentLiveState && cfg.videoId === currentVideoId) {
+        scheduleNextPoll(cfg.live);
         return;
       }
 
@@ -396,15 +400,21 @@
         iframe.src = '';
         document.title = 'Iglesia de Pan Bendito — Directo';
       }
+
+      scheduleNextPoll(cfg.live);
     }
 
-    // Comprobación inicial
+    function scheduleNextPoll(isLive) {
+      if (pollTimer) clearTimeout(pollTimer);
+      // Chequear cada 6s si no hay directo (para detectar inicio rápido) y cada 15s si ya está emitiendo
+      const interval = isLive ? 15000 : 6000;
+      pollTimer = setTimeout(loadConfig, interval);
+    }
+
+    // Comprobación inicial inmediata
     loadConfig();
 
-    // Comprobar automáticamente cada 5 segundos
-    setInterval(loadConfig, 5000);
-
-    // Comprobar al volver a la pestaña
+    // Comprobación instantánea al volver a la pestaña
     window.addEventListener('focus', loadConfig);
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) loadConfig();
