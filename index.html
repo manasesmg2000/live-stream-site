@@ -390,66 +390,40 @@
       return input;
     }
 
+    const REALTIME_TOPIC = 'https://ntfy.sh/iglesia-pan-bendito-live-channel-v1';
     const CONFIG_API_URL = 'https://api.github.com/repos/manasesmg2000/live-stream-site/contents/config.json?ref=main';
 
     let currentLiveState = null;
     let currentVideoId   = null;
-    let pollTimer        = null;
 
-    async function loadConfig() {
-      let cfg = null;
-
-      // 1. Consultar la API de GitHub en tiempo real (instantáneo, sin caché CDN)
-      try {
-        const res = await fetch(`${CONFIG_API_URL}&_t=${Date.now()}`, {
-          headers: { 'Accept': 'application/vnd.github.v3.raw' },
-          cache: 'no-store',
-        });
-        if (res.ok) {
-          cfg = await res.json();
-        }
-      } catch (e) {
-        console.warn('API error, usando fallback Pages:', e);
+    function applySignal(rawMsg) {
+      if (typeof rawMsg !== 'string') return;
+      const msg = rawMsg.trim();
+      if (msg.startsWith('LIVE:')) {
+        const vid = extractVideoId(msg.substring(5));
+        renderUI(true, vid);
+      } else if (msg === 'OFFLINE') {
+        renderUI(false, '');
       }
+    }
 
-      // 2. Si la API falla (ej. límite de peticiones), consultar config.json de Pages
-      if (!cfg) {
-        try {
-          const resPages = await fetch(`./config.json?_t=${Date.now()}`, {
-            cache: 'no-store',
-          });
-          if (resPages.ok) {
-            cfg = await resPages.json();
-          }
-        } catch (e) {
-          console.error('Error cargando config:', e);
-        }
-      }
-
-      if (!cfg) return;
-
-      // Si no hay cambios de estado, no tocar el reproductor para evitar reinicios
-      if (cfg.live === currentLiveState && cfg.videoId === currentVideoId) {
-        scheduleNextPoll();
-        return;
-      }
-
-      currentLiveState = cfg.live;
-      currentVideoId   = cfg.videoId;
+    function renderUI(isLive, vid) {
+      if (isLive === currentLiveState && vid === currentVideoId) return;
+      currentLiveState = isLive;
+      currentVideoId   = vid;
 
       const noLive        = document.getElementById('no-live');
       const liveContainer = document.getElementById('live-container');
       const badge         = document.getElementById('badge');
       const iframe        = document.getElementById('yt-iframe');
       const info          = document.getElementById('stream-info');
+      const btnOpenYt     = document.getElementById('btn-open-yt');
 
-      if (cfg.live && cfg.videoId) {
-        const vid = extractVideoId(cfg.videoId);
+      if (isLive && vid) {
         noLive.classList.add('hidden');
         liveContainer.classList.remove('hidden');
         badge.classList.remove('hidden');
         iframe.src = `https://www.youtube.com/embed/${vid}?autoplay=1&enablejsapi=1`;
-        const btnOpenYt = document.getElementById('btn-open-yt');
         if (btnOpenYt) {
           btnOpenYt.href = `https://www.youtube.com/watch?v=${vid}`;
         }
@@ -462,14 +436,63 @@
         iframe.src = '';
         document.title = 'Iglesia de Pan Bendito — Directo';
       }
+    }
 
-      scheduleNextPoll();
+    // 1. Conexión en tiempo real instantánea (SSE) - recibe el cambio en 0.05s
+    function initRealtime() {
+      if (!window.EventSource) return;
+      try {
+        const sse = new EventSource(`${REALTIME_TOPIC}/sse`);
+        sse.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.event === 'message' && data.message) {
+              applySignal(data.message);
+            }
+          } catch (e) {}
+        };
+      } catch (e) {
+        console.warn('SSE fallback:', e);
+      }
+    }
+
+    // 2. Consulta de estado inicial o respaldo
+    async function checkState() {
+      // Intentar leer el último mensaje de la cola en tiempo real
+      try {
+        const res = await fetch(`${REALTIME_TOPIC}/json?poll=1`, { cache: 'no-store' });
+        if (res.ok) {
+          const text = await res.text();
+          const lines = text.trim().split('\n').filter(Boolean);
+          for (let i = lines.length - 1; i >= 0; i--) {
+            try {
+              const item = JSON.parse(lines[i]);
+              if (item.event === 'message' && item.message) {
+                applySignal(item.message);
+                return;
+              }
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+
+      // Fallback: leer config.json
+      try {
+        const resPages = await fetch(`./config.json?_t=${Date.now()}`, { cache: 'no-store' });
+        if (resPages.ok) {
+          const cfg = await resPages.json();
+          if (cfg.live && cfg.videoId) {
+            renderUI(true, extractVideoId(cfg.videoId));
+          } else {
+            renderUI(false, '');
+          }
+        }
+      } catch (e) {}
     }
 
     function handleCast() {
       if (!currentVideoId) return;
       const vid = extractVideoId(currentVideoId);
-      // 1. Intentar iniciar la solicitud de emisión nativa (Chromecast / Google Cast)
       if (window.PresentationRequest) {
         try {
           const req = new PresentationRequest([
@@ -481,23 +504,22 @@
           return;
         } catch (e) {}
       }
-      // 2. Fallback: abrir en la app de YouTube donde el botón de emitir está en la esquina superior
       window.open(`https://www.youtube.com/watch?v=${vid}`, '_blank');
     }
 
-    function scheduleNextPoll() {
-      if (pollTimer) clearTimeout(pollTimer);
-      // Comprobación cada 3 segundos para que los cambios se reflejen de inmediato
-      pollTimer = setTimeout(loadConfig, 3000);
-    }
+    // Iniciar conexión en tiempo real inmediata
+    initRealtime();
 
-    // Comprobación inicial inmediata
-    loadConfig();
+    // Consulta de estado inicial
+    checkState();
 
-    // Comprobación instantánea al volver a la pestaña
-    window.addEventListener('focus', loadConfig);
+    // Comprobación periódica de respaldo cada 10 segundos
+    setInterval(checkState, 10000);
+
+    // Comprobación al volver a la pestaña
+    window.addEventListener('focus', checkState);
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) loadConfig();
+      if (!document.hidden) checkState();
     });
   </script>
 </body>
