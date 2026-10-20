@@ -1,5 +1,5 @@
 name: pan_bendito_app
-description: "App oficial de la Iglesia de Pan Bendito para transmisiones en directo y emisión a TV."
+description: "PAN BENDITO - Emisión en directo y transmisión a TV."
 publish_to: "none"
 version: 1.0.0+1
 
@@ -24,4 +24,5 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/images/logo.png
     - assets/images/logo.jpg
