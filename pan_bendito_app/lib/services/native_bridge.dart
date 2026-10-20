@@ -24,6 +24,13 @@ class NativeBridge {
     }
   }
 
+  /// Solicita el permiso nativo de notificaciones al sistema
+  static Future<void> requestNotificationPermission() async {
+    try {
+      await _channel.invokeMethod('requestNotificationPermission');
+    } catch (_) {}
+  }
+
   /// Registra el acceso en el archivo de texto local
   static Future<void> logAccess(String name, String date) async {
     try {
