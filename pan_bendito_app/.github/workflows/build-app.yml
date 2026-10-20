@@ -38,17 +38,28 @@ jobs:
         working-directory: ./pan_bendito_app
         run: |
           cp pubspec.yaml pubspec.backup.yaml
-          mkdir -p res.backup
-          cp -r android/app/src/main/res/* res.backup/ 2>/dev/null || true
+          mkdir -p backup_native
+          cp -r android/app/src/main/res backup_native/ 2>/dev/null || true
+          cp android/app/src/main/AndroidManifest.xml backup_native/ 2>/dev/null || true
+          cp -r android/app/src/main/kotlin backup_native/ 2>/dev/null || true
+          
           rm -rf android
           flutter create . --org com.iglesiapanbendito --project-name pan_bendito_app --platforms=android
           cp pubspec.backup.yaml pubspec.yaml
-          cp -r res.backup/* android/app/src/main/res/ 2>/dev/null || true
           
-          # Inyectar permisos de red, wifi, queries, usesCleartextTraffic y nombre PAN BENDITO en AndroidManifest
+          # Restaurar recursos visuales, iconos, MainActivity con MulticastLock y Manifest
+          cp -rf backup_native/res/* android/app/src/main/res/ 2>/dev/null || true
+          if [ -d "backup_native/kotlin" ]; then
+            cp -rf backup_native/kotlin/* android/app/src/main/kotlin/ 2>/dev/null || true
+          fi
+          
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i 's/android:label="[^"]*"/android:label="PAN BENDITO" android:usesCleartextTraffic="true" android:allowBackup="false"/g' "$MANIFEST"
-          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n    <queries>\n        <package android:name="com.google.android.youtube" />\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="vnd.youtube" />\n        </intent>\n    </queries>' "$MANIFEST"
+          if [ -f "backup_native/AndroidManifest.xml" ]; then
+            cp backup_native/AndroidManifest.xml "$MANIFEST"
+          else
+            sed -i 's/android:label="[^"]*"/android:label="PAN BENDITO" android:usesCleartextTraffic="true" android:allowBackup="false"/g' "$MANIFEST"
+            sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />\n    <queries>\n        <package android:name="com.google.android.youtube" />\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="vnd.youtube" />\n        </intent>\n    </queries>' "$MANIFEST"
+          fi
 
           # Configurar certificado release permanente (para que no cambie la firma en cada build)
           if [ -f "panbendito.keystore.b64" ]; then
