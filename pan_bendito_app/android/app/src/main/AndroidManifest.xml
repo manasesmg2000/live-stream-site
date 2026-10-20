@@ -61,8 +61,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
+
+        <!-- Receptor periódico en segundo plano para notificaciones incluso con la app cerrada -->
+        <receiver
+            android:name=".NotificationAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
 
         <meta-data
             android:name="flutterEmbedding"
