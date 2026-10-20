@@ -330,7 +330,10 @@
     <div class="card">
       <h2>
         <span>🟢 Hermanos conectados ahora</span>
-        <button class="btn-action" style="padding:4px 10px; font-size:0.75rem; width:auto;" onclick="refreshPresence()">🔄 Refrescar</button>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-action" style="padding:4px 10px; font-size:0.75rem; width:auto;" onclick="refreshPresence()">🔄 Refrescar</button>
+          <button class="btn-action" style="padding:4px 10px; font-size:0.75rem; width:auto; background:#3a2424; border-color:#663333; color:#ff9999;" onclick="clearActiveUsers()">🧹 Limpiar</button>
+        </div>
       </h2>
 
       <div style="max-height: 220px; overflow-y: auto;">
@@ -678,12 +681,28 @@
     const activeUsersMap = new Map(); // name -> lastSeenTimestamp (epoch ms)
     const accessLogsList = [];        // { name, date }
 
-    function handlePresenceMessage(raw) {
+    function clearActiveUsers() {
+      activeUsersMap.clear();
+      renderActiveUsers();
+    }
+
+    function handlePresenceMessage(raw, msgEpochMs = null) {
       if (!raw || typeof raw !== 'string') return;
       const text = raw.trim();
 
       let name = '';
       let dateStr = '';
+
+      if (text.startsWith('LOGOUT:')) {
+        const payload = text.substring(7);
+        const parts = payload.split('|');
+        name = parts[0]?.trim();
+        if (name) {
+          activeUsersMap.delete(name);
+          renderActiveUsers();
+        }
+        return;
+      }
 
       if (text.startsWith('LOGIN:') || text.startsWith('PING:')) {
         const payload = text.substring(6);
@@ -697,12 +716,21 @@
       if (!name) return;
 
       const now = Date.now();
-      activeUsersMap.set(name, now);
+      const timestamp = msgEpochMs || now;
+      const ageMs = now - timestamp;
+
+      // Solo se considera activo si el mensaje es reciente (menos de 45 segundos)
+      if (ageMs <= 45000) {
+        activeUsersMap.set(name, timestamp);
+      }
 
       if (text.startsWith('LOGIN:')) {
-        accessLogsList.unshift({ name, date: dateStr });
-        if (accessLogsList.length > 200) accessLogsList.pop();
-        renderAccessLogs();
+        const existsRecent = accessLogsList.some(l => l.name === name && l.date === dateStr);
+        if (!existsRecent) {
+          accessLogsList.unshift({ name, date: dateStr });
+          if (accessLogsList.length > 200) accessLogsList.pop();
+          renderAccessLogs();
+        }
       }
 
       renderActiveUsers();
@@ -711,40 +739,43 @@
     function renderActiveUsers() {
       const tbody = document.getElementById('active-users-tbody');
       const now = Date.now();
-      const cutoffActive = 90 * 1000; // 90 segundos para considerar activo
+      const cutoffMs = 45 * 1000; // 45 segundos para considerar conectado
 
-      let activeCount = 0;
+      // Eliminar automáticamente a cualquier usuario que no haya emitido latido en 45 segundos
+      for (const [name, lastSeen] of activeUsersMap.entries()) {
+        if ((now - lastSeen) > cutoffMs) {
+          activeUsersMap.delete(name);
+        }
+      }
+
+      const activeCount = activeUsersMap.size;
+      document.getElementById('active-count-display').textContent = activeCount;
+      document.getElementById('tab-count').textContent = activeCount;
+
+      if (activeCount === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#7090c0; padding:18px;">No hay hermanos conectados en este momento</td></tr>`;
+        return;
+      }
+
       let rowsHtml = '';
-
       const sortedUsers = Array.from(activeUsersMap.entries()).sort((a, b) => b[1] - a[1]);
 
       for (const [name, lastSeen] of sortedUsers) {
-        const diffSec = Math.round((now - lastSeen) / 1000);
-        const isOnline = diffSec <= 90;
-        if (isOnline) activeCount++;
-
-        let timeDesc = diffSec < 60 ? `Hace ${diffSec} seg` : `Hace ${Math.round(diffSec / 60)} min`;
+        const diffSec = Math.max(0, Math.round((now - lastSeen) / 1000));
+        const timeDesc = diffSec < 5 ? 'Ahora mismo' : `Hace ${diffSec} seg`;
 
         rowsHtml += `
           <tr>
             <td><b>${escapeHtml(name)}</b></td>
             <td style="color:#8fa5c7;">${timeDesc}</td>
             <td>
-              <span class="${isOnline ? 'tag-online' : 'tag-offline'}">
-                ${isOnline ? '🟢 Conectado' : '⚪ Inactivo'}
-              </span>
+              <span class="tag-online">🟢 Conectado</span>
             </td>
           </tr>
         `;
       }
 
-      if (rowsHtml === '') {
-        rowsHtml = `<tr><td colspan="3" style="text-align:center; color:#7090c0; padding:18px;">No hay usuarios conectados ahora</td></tr>`;
-      }
-
       tbody.innerHTML = rowsHtml;
-      document.getElementById('active-count-display').textContent = activeCount;
-      document.getElementById('tab-count').textContent = activeCount;
     }
 
     function renderAccessLogs() {
@@ -772,7 +803,7 @@
           try {
             const data = JSON.parse(event.data);
             if (data.event === 'message' && data.message) {
-              handlePresenceMessage(data.message);
+              handlePresenceMessage(data.message, data.time ? data.time * 1000 : null);
             }
           } catch (_) {}
         };
@@ -791,7 +822,9 @@
             try {
               const item = JSON.parse(line);
               if (item.event === 'message' && item.message) {
-                handlePresenceMessage(item.message);
+                const itemTime = item.time ? item.time * 1000 : null;
+                // Si el mensaje es más viejo de 45 segundos, no marcarlo como conectado
+                handlePresenceMessage(item.message, itemTime);
               }
             } catch (_) {}
           }
