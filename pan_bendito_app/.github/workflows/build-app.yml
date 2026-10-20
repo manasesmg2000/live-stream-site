@@ -34,7 +34,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Generar estructura nativa de Android con configuración limpia
+      - name: Generar estructura nativa de Android con configuracion limpia
         working-directory: ./pan_bendito_app
         run: |
           cp pubspec.yaml pubspec.backup.yaml
@@ -116,7 +116,7 @@ jobs:
           if-no-files-found: error
 
   build-ios:
-    name: Compilar versión para iOS
+    name: Compilar version para iOS
     runs-on: macos-latest
     steps:
       - name: Descargar repositorio
@@ -147,7 +147,7 @@ jobs:
         working-directory: ./pan_bendito_app
         run: flutter pub get
 
-      - name: Compilar versión iOS (sin firma para pruebas)
+      - name: Compilar version iOS (sin firma para pruebas)
         working-directory: ./pan_bendito_app
         run: flutter build ios --release --no-codesign
 
