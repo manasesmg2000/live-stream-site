@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/tv_cast_service.dart';
 
 class TvCastModal {
@@ -29,23 +30,18 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
   bool _isScanning = true;
   String? _castingToId;
   String? _statusMessage;
-  late AnimationController _pulseController;
+  String? _failedTvId;
+  String? _successfulTvId;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
-
     _startSearch();
   }
 
   @override
   void dispose() {
     _castService.dispose();
-    _pulseController.dispose();
     super.dispose();
   }
 
@@ -53,6 +49,8 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
     setState(() {
       _isScanning = true;
       _statusMessage = null;
+      _failedTvId = null;
+      _successfulTvId = null;
     });
 
     _castService.startDiscovery(
@@ -76,7 +74,8 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
   Future<void> _castTo(DiscoveredTv tv) async {
     setState(() {
       _castingToId = tv.id;
-      _statusMessage = 'Conectando con ${tv.name}...';
+      _failedTvId = null;
+      _statusMessage = 'Enviando directo a ${tv.name}...';
     });
 
     final success = await _castService.castToDevice(tv, widget.videoId);
@@ -85,10 +84,12 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
     setState(() {
       _castingToId = null;
       if (success) {
-        _statusMessage = '¡Emitiendo en ${tv.name}! 🎉';
+        _successfulTvId = tv.id;
+        _statusMessage = '¡Señal enviada a ${tv.name}! Abriendo directo en la TV... 🎉';
       } else {
+        _failedTvId = tv.id;
         _statusMessage =
-            'La TV recibió la señal. Si no abre automáticamente, asegúrate de que YouTube está instalado en la TV.';
+            'La TV (${tv.name}) está protegida o en modo espera. Pulsa "Conectar por Cast" abajo para emitir.';
       }
     });
   }
@@ -104,6 +105,20 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
           backgroundColor: Color(0xFF1A2740),
         ),
       );
+    }
+  }
+
+  Future<void> _launchYouTubeDirect() async {
+    final nativeUri = Uri.parse('vnd.youtube:${widget.videoId}');
+    final webUri = Uri.parse('https://www.youtube.com/watch?v=${widget.videoId}');
+    try {
+      if (await canLaunchUrl(nativeUri)) {
+        await launchUrl(nativeUri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      await launchUrl(webUri, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -237,9 +252,15 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E3A5F),
+                  color: _successfulTvId != null
+                      ? const Color(0xFF1B4D3E)
+                      : const Color(0xFF1E3A5F),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF7090C0)),
+                  border: Border.all(
+                    color: _successfulTvId != null
+                        ? const Color(0xFF4CAF50)
+                        : const Color(0xFF7090C0),
+                  ),
                 ),
                 child: Text(
                   _statusMessage!,
@@ -255,7 +276,7 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
 
             const SizedBox(height: 14),
 
-            // Lista de dispositivos encontrados o mensaje si no hay ninguno
+            // Lista de dispositivos encontrados
             Flexible(
               child: _devices.isNotEmpty
                   ? ListView.separated(
@@ -265,93 +286,157 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
                       itemBuilder: (context, index) {
                         final tv = _devices[index];
                         final isCastingThis = _castingToId == tv.id;
+                        final isSuccess = _successfulTvId == tv.id;
+                        final isFailed = _failedTvId == tv.id;
 
                         return Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A2740),
+                            color: isSuccess
+                                ? const Color(0xFF153327)
+                                : const Color(0xFF1A2740),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: const Color(0xFF7090C0).withOpacity(0.35),
+                              color: isSuccess
+                                  ? const Color(0xFF4CAF50)
+                                  : const Color(0xFF7090C0).withOpacity(0.35),
                             ),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF24355A),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(
-                                  Icons.tv,
-                                  color: Color(0xFFE8EEF8),
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      tv.name,
-                                      style: const TextStyle(
-                                        color: Color(0xFFE8EEF8),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: isSuccess
+                                          ? const Color(0xFF2E6B4E)
+                                          : const Color(0xFF24355A),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Wi-Fi: ${tv.ip}${tv.manufacturer != null ? ' • ${tv.manufacturer}' : ''}',
-                                      style: const TextStyle(
-                                        color: Color(0xFF7090C0),
-                                        fontSize: 11,
-                                      ),
+                                    child: Icon(
+                                      isSuccess ? Icons.check : Icons.tv,
+                                      color: const Color(0xFFE8EEF8),
+                                      size: 24,
                                     ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF24355A),
-                                  foregroundColor: const Color(0xFFE8EEF8),
-                                  side: const BorderSide(
-                                    color: Color(0xFF7090C0),
-                                    width: 1,
                                   ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                onPressed: isCastingThis ? null : () => _castTo(tv),
-                                child: isCastingThis
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                            Colors.white,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          tv.name,
+                                          style: const TextStyle(
+                                            color: Color(0xFFE8EEF8),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                      )
-                                    : const Text(
-                                        'Transmitir',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Wi-Fi: ${tv.ip}${tv.manufacturer != null ? ' • ${tv.manufacturer}' : ''}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF7090C0),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: isSuccess
+                                          ? const Color(0xFF388E3C)
+                                          : const Color(0xFF24355A),
+                                      foregroundColor:
+                                          const Color(0xFFE8EEF8),
+                                      side: BorderSide(
+                                        color: isSuccess
+                                            ? const Color(0xFF81C784)
+                                            : const Color(0xFF7090C0),
+                                        width: 1,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                    onPressed: isCastingThis
+                                        ? null
+                                        : () => _castTo(tv),
+                                    child: isCastingThis
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<
+                                                      Color>(
+                                                Colors.white,
+                                              ),
+                                            ),
+                                          )
+                                        : Text(
+                                            isSuccess ? 'Emitiendo' : 'Transmitir',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                  ),
+                                ],
+                              ),
+
+                              // Si la TV requirió alternativa de conexión
+                              if (isFailed) ...[
+                                const SizedBox(height: 10),
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          icon: const Icon(Icons.cast, size: 14),
+                                          label: const Text('Cast de Android'),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: const Color(0xFFE8EEF8),
+                                            side: const BorderSide(color: Color(0xFF7090C0)),
+                                            padding: const EdgeInsets.symmetric(vertical: 8),
+                                          ),
+                                          onPressed: _openSystemCast,
                                         ),
                                       ),
-                              ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          icon: const Icon(Icons.play_circle_outline, size: 14),
+                                          label: const Text('Enlazar TV'),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: const Color(0xFFE8EEF8),
+                                            side: const BorderSide(color: Color(0xFF7090C0)),
+                                            padding: const EdgeInsets.symmetric(vertical: 8),
+                                          ),
+                                          onPressed: _launchYouTubeDirect,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         );
