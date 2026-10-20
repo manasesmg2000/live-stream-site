@@ -2,9 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:android_intent_plus/android_intent.dart';
 
-/// Representa un televisor o pantalla detectada en la red local
+/// Dispositivo Smart TV o pantalla detectada en la red local
 class DiscoveredTv {
   final String id;
   final String name;
@@ -39,10 +38,14 @@ class DiscoveredTv {
       locationUrl.contains(':8060');
 }
 
-/// Servicio de descubrimiento y transmisión a televisores (Smart TV, DLNA, DIAL, Cast)
+/// Servicio de descubrimiento (SSDP/DIAL) y reproducción directa en TV a través de YouTube Lounge API
 class TvCastService {
   static const String _ssdpAddress = '239.255.255.250';
   static const int _ssdpPort = 1900;
+
+  static const String _loungeBase = 'https://www.youtube.com/api/lounge';
+  static const String _loungeTokenUrl = '$_loungeBase/pairing/get_lounge_token_batch';
+  static const String _loungeBindUrl = '$_loungeBase/bc/bind';
 
   RawDatagramSocket? _socket;
   Timer? _scanTimer;
@@ -92,8 +95,8 @@ class TvCastService {
         _socket?.send(utf8.encode(searchMsg), multicastAddr, _ssdpPort);
       }
 
-      // Finalizar escaneo tras 5 segundos
-      _scanTimer = Timer(const Duration(seconds: 5), () {
+      // Finalizar escaneo tras 6 segundos
+      _scanTimer = Timer(const Duration(seconds: 6), () {
         _stopDiscovery();
         onScanComplete();
       });
@@ -130,20 +133,19 @@ class TvCastService {
     try {
       final locUri = Uri.parse(locationUrl);
       final res = await http.get(locUri).timeout(
-            const Duration(milliseconds: 2000),
+            const Duration(milliseconds: 2500),
           );
 
       if (res.statusCode == 200) {
         final body = res.body;
 
-        // Nombre amigable (ej: "Samsung QLED 55", "LG webOS TV", "Roku Ultra")
+        // Nombre amigable (ej: "Samsung QLED 55", "LG webOS TV", "Android TV")
         final nameMatch = RegExp(
           r'<friendlyName>(.*?)</friendlyName>',
           caseSensitive: false,
         ).firstMatch(body);
         var name = nameMatch?.group(1)?.trim();
 
-        // Si no hay friendlyName, intentar con modelName
         if (name == null || name.isEmpty) {
           final modelMatch = RegExp(
             r'<modelName>(.*?)</modelName>',
@@ -152,7 +154,6 @@ class TvCastService {
           name = modelMatch?.group(1)?.trim() ?? 'Smart TV ($senderIp)';
         }
 
-        // Fabricante
         final mfgMatch = RegExp(
           r'<manufacturer>(.*?)</manufacturer>',
           caseSensitive: false,
@@ -170,7 +171,6 @@ class TvCastService {
           }
         }
 
-        // Si applicationUrl es null, deducir según puerto y fabricante
         if (applicationUrl == null || applicationUrl.isEmpty) {
           if (locUri.port == 8001 || locUri.port == 8002) {
             applicationUrl = 'http://$senderIp:8001/ms/1.0/';
@@ -198,172 +198,231 @@ class TvCastService {
 
         onDeviceFound(device);
       }
-    } catch (_) {
-      // Ignorar dispositivos que no responden al XML
-    }
+    } catch (_) {}
   }
 
-  /// Envía la orden directa a la Smart TV para abrir YouTube y reproducir el directo
+  /// Envía la orden directa a la TV para abrir YouTube y reproducir el directo usando DIAL + YouTube Lounge API
   Future<bool> castToDevice(DiscoveredTv tv, String videoId) async {
-    final candidates = <String>[];
     final ip = tv.ip;
 
-    // 1. DIAL App URL explícito detectado en SSDP
+    // Paso 1: Intentar obtener el screenId directamente de la app de YouTube en la TV mediante DIAL
+    final dialEndpoints = <String>[];
     if (tv.dialAppUrl != null && tv.dialAppUrl!.isNotEmpty) {
-      final base = tv.dialAppUrl!;
-      candidates.add('${base}YouTube');
-      candidates.add('${base}111299001912'); // Samsung YouTube App ID
-      candidates.add('${base}youtube.leanback.v4'); // LG YouTube App ID
+      dialEndpoints.add('${tv.dialAppUrl}YouTube');
     }
+    dialEndpoints.add('http://$ip:8008/apps/YouTube');
+    dialEndpoints.add('http://$ip:8001/ms/1.0/YouTube');
+    dialEndpoints.add('http://$ip:1970/apps/YouTube');
+    dialEndpoints.add('http://$ip:8080/dial/apps/YouTube');
+    dialEndpoints.add('http://$ip:8080/apps/YouTube');
 
-    // 2. Variantes de Samsung Tizen (puertos 8001 y 8002)
-    candidates.add('http://$ip:8001/ms/1.0/YouTube');
-    candidates.add('http://$ip:8001/api/v2/applications/111299001912');
-    candidates.add('http://$ip:8001/api/v2/applications/YouTube');
-    candidates.add('http://$ip:8001/api/v2/applications/org.tizen.browser');
-    candidates.add('http://$ip:8002/ms/1.0/YouTube');
+    String? screenId;
 
-    // 3. Variantes de LG webOS (puertos 1970, 8080, 3000)
-    candidates.add('http://$ip:1970/apps/YouTube');
-    candidates.add('http://$ip:8080/dial/apps/YouTube');
-    candidates.add('http://$ip:8080/apps/YouTube');
-    candidates.add('http://$ip:3000/apps/YouTube');
-
-    // 4. Roku ECP (puerto 8060)
-    candidates.add('http://$ip:8060/launch/837?contentId=$videoId');
-    candidates.add('http://$ip:8060/input/837?contentId=$videoId');
-
-    // 5. Android TV / Google Cast DIAL (puerto 8008)
-    candidates.add('http://$ip:8008/apps/YouTube');
-    candidates.add('http://$ip:8008/apps/111299001912');
-
-    // 6. Basado en locationUrl
-    final locUri = Uri.tryParse(tv.locationUrl);
-    if (locUri != null && locUri.hasPort) {
-      candidates.add('${locUri.scheme}://${locUri.host}:${locUri.port}/apps/YouTube');
-    }
-
-    final uniqueCandidates = candidates.toSet().toList();
-
-    for (final candidate in uniqueCandidates) {
+    for (final endpoint in dialEndpoints.toSet()) {
       try {
-        final uri = Uri.parse(candidate);
+        final uri = Uri.parse(endpoint);
+        
+        // 1.1 Si no está abierta o para arrancarla: POST a la app YouTube
+        try {
+          await http.post(
+            uri,
+            headers: {
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Origin': 'https://www.youtube.com',
+            },
+            body: 'v=$videoId',
+          ).timeout(const Duration(milliseconds: 1500));
+        } catch (_) {}
 
-        // A. Si es Roku ECP
-        if (candidate.contains(':8060/')) {
-          final res = await http.post(uri).timeout(const Duration(milliseconds: 1500));
-          if (res.statusCode == 200 || res.statusCode == 204) return true;
-          continue;
-        }
+        // 1.2 Consultar el estado de YouTube en la TV con GET para obtener screenId
+        final getRes = await http.get(
+          uri,
+          headers: {'Origin': 'https://www.youtube.com'},
+        ).timeout(const Duration(milliseconds: 1800));
 
-        // B. Si es Samsung REST API
-        if (candidate.contains('/api/v2/applications/')) {
-          final originHeader = 'http://$ip:8001';
-          final bodies = [
-            json.encode({'action': 'start', 'url': 'https://www.youtube.com/watch?v=$videoId'}),
-            json.encode({'data': {'url': 'https://www.youtube.com/watch?v=$videoId'}}),
-            json.encode({'action': 'start'}),
-          ];
-          for (final bodyJson in bodies) {
-            try {
-              final res = await http.post(
-                uri,
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Origin': originHeader,
-                  'Referer': originHeader,
-                },
-                body: bodyJson,
-              ).timeout(const Duration(milliseconds: 1500));
-              if (res.statusCode == 200 || res.statusCode == 201 || res.statusCode == 202) {
-                return true;
-              }
-            } catch (_) {}
+        if (getRes.statusCode == 200 && getRes.body.isNotEmpty) {
+          final body = getRes.body;
+          final match = RegExp(r'<screenId>(.*?)</screenId>', caseSensitive: false).firstMatch(body);
+          if (match != null && match.group(1) != null && match.group(1)!.trim().isNotEmpty) {
+            screenId = match.group(1)!.trim();
+            break;
           }
         }
+      } catch (_) {}
+    }
 
-        // C. DIAL POST estándar (text/plain y form-urlencoded con Origin)
-        final origin = 'http://$ip:${uri.port > 0 ? uri.port : 80}';
-        final headersList = [
-          {
+    // Paso 2: Si obtuvimos el screenId de la TV, enviar el vídeo a través de la API oficial YouTube Lounge
+    if (screenId != null && screenId.isNotEmpty) {
+      final loungeSuccess = await _playViaLoungeApi(screenId, videoId);
+      if (loungeSuccess) return true;
+    }
+
+    // Paso 3: Fallbacks directos para Samsung Tizen REST API, LG webOS y Roku
+    if (tv.isSamsung || tv.locationUrl.contains(':8001')) {
+      final samsungSuccess = await _castSamsungDirect(ip, videoId);
+      if (samsungSuccess) return true;
+    }
+
+    if (tv.isRoku || tv.locationUrl.contains(':8060')) {
+      final rokuSuccess = await _castRokuDirect(ip, videoId);
+      if (rokuSuccess) return true;
+    }
+
+    // Si la orden de arranque directo se envió a la TV
+    for (final endpoint in dialEndpoints) {
+      try {
+        final uri = Uri.parse(endpoint);
+        final res = await http.post(
+          uri,
+          headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Origin': 'https://www.youtube.com',
           },
-          {
-            'Content-Type': 'text/plain; charset=utf-8',
-            'Origin': origin,
-          },
-          {
-            'Content-Type': 'text/plain; charset=utf-8',
-          },
-        ];
-
-        for (final hdrs in headersList) {
-          try {
-            final res = await http.post(
-              uri,
-              headers: hdrs,
-              body: 'v=$videoId',
-            ).timeout(const Duration(milliseconds: 1500));
-
-            if (res.statusCode >= 200 && res.statusCode < 300) {
-              return true;
-            }
-          } catch (_) {}
-        }
-
-        // D. Intento con parámetro query en URL
-        final uriWithQuery = uri.replace(queryParameters: {'v': videoId});
-        final resQuery = await http.post(
-          uriWithQuery,
-          headers: {'Content-Type': 'text/plain; charset=utf-8', 'Origin': origin},
           body: 'v=$videoId',
         ).timeout(const Duration(milliseconds: 1500));
-
-        if (resQuery.statusCode >= 200 && resQuery.statusCode < 300) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
           return true;
         }
-      } catch (_) {
-        // Seguir probando el siguiente endpoint
-      }
+      } catch (_) {}
     }
 
     return false;
   }
 
-  /// Abre directamente el panel de búsqueda de dispositivos Cast nativo del sistema
-  Future<bool> openSystemCastSettings() async {
-    if (Platform.isAndroid) {
+  /// Conecta con la sesión Lounge de la TV y le ordena reproducir el vídeo
+  Future<bool> _playViaLoungeApi(String screenId, String videoId) async {
+    try {
+      // 1. Obtener el loungeToken para esta pantalla
+      final tokenRes = await http.post(
+        Uri.parse(_loungeTokenUrl),
+        headers: {
+          'Origin': 'https://www.youtube.com',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'screen_ids=$screenId',
+      ).timeout(const Duration(seconds: 4));
+
+      if (tokenRes.statusCode != 200) return false;
+
+      final tokenJson = json.decode(tokenRes.body);
+      final screens = tokenJson['screens'] as List?;
+      if (screens == null || screens.isEmpty) return false;
+
+      final loungeToken = screens[0]['loungeToken'] as String?;
+      if (loungeToken == null || loungeToken.isEmpty) return false;
+
+      // 2. Establecer el canal de control (Bind)
+      final bindUri = Uri.parse('$_loungeBindUrl?RID=1&VER=8&CVER=1');
+      final bindHeaders = {
+        'Origin': 'https://www.youtube.com',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-YouTube-LoungeId-Token': loungeToken,
+      };
+
+      final bindBody = {
+        'device': 'REMOTE_CONTROL',
+        'id': 'pan_bendito_mobile_remote',
+        'name': 'PAN BENDITO App',
+        'app': 'android-phone-13.14.55',
+        'mdx-version': '3',
+        'pairing_type': 'cast',
+      };
+
+      final bindRes = await http.post(
+        bindUri,
+        headers: bindHeaders,
+        body: bindBody,
+      ).timeout(const Duration(seconds: 4));
+
+      if (bindRes.statusCode != 200) return false;
+
+      final bindText = bindRes.body;
+      final sidMatch = RegExp(r'"c","(.*?)",\"').firstMatch(bindText);
+      final gsessionMatch = RegExp(r'"S","(.*?)"]').firstMatch(bindText);
+
+      final sid = sidMatch?.group(1);
+      final gsessionid = gsessionMatch?.group(1);
+
+      if (sid == null || gsessionid == null) return false;
+
+      // 3. Enviar comando setPlaylist con el videoId del directo
+      final playUri = Uri.parse(
+        '$_loungeBindUrl?SID=$sid&gsessionid=$gsessionid&RID=2&VER=8&CVER=1',
+      );
+
+      final playBody = {
+        'count': '1',
+        'ofs': '0',
+        'req0__sc': 'setPlaylist',
+        'req0_videoId': videoId,
+        'req0_videoIds': videoId,
+        'req0_currentIndex': '0',
+        'req0_currentTime': '0',
+      };
+
+      final playRes = await http.post(
+        playUri,
+        headers: bindHeaders,
+        body: playBody,
+      ).timeout(const Duration(seconds: 4));
+
+      return playRes.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Envío directo para Smart TVs Samsung Tizen
+  Future<bool> _castSamsungDirect(String ip, String videoId) async {
+    final urls = [
+      'http://$ip:8001/api/v2/applications/111299001912',
+      'http://$ip:8001/ms/1.0/YouTube',
+      'http://$ip:8001/api/v2/applications/YouTube',
+    ];
+
+    for (final u in urls) {
       try {
-        // 1. Selector estándar de Google Cast / Pantallas inalámbricas
-        const intent = AndroidIntent(
-          action: 'android.settings.CAST_SETTINGS',
-        );
-        await intent.launch();
-        return true;
-      } catch (_) {
-        try {
-          // 2. Fallback para Wi-Fi Display / Miracast
-          const intent = AndroidIntent(
-            action: 'android.settings.WIFI_DISPLAY_SETTINGS',
-          );
-          await intent.launch();
-          return true;
-        } catch (_) {
-          try {
-            // 3. Fallback a ajustes generales
-            const intent = AndroidIntent(
-              action: 'android.settings.SETTINGS',
-            );
-            await intent.launch();
-            return true;
-          } catch (_) {
-            return false;
-          }
+        final uri = Uri.parse(u);
+        if (u.contains('/api/v2/applications/')) {
+          final res = await http.post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Origin': 'http://$ip:8001',
+              'Referer': 'http://$ip:8001',
+            },
+            body: json.encode({
+              'action': 'start',
+              'url': 'https://www.youtube.com/watch?v=$videoId',
+            }),
+          ).timeout(const Duration(milliseconds: 1500));
+          if (res.statusCode >= 200 && res.statusCode < 300) return true;
+        } else {
+          final res = await http.post(
+            uri,
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Origin': 'http://$ip:8001',
+            },
+            body: 'v=$videoId',
+          ).timeout(const Duration(milliseconds: 1500));
+          if (res.statusCode >= 200 && res.statusCode < 300) return true;
         }
-      }
+      } catch (_) {}
     }
     return false;
+  }
+
+  /// Envío directo para Roku
+  Future<bool> _castRokuDirect(String ip, String videoId) async {
+    try {
+      final res = await http.post(
+        Uri.parse('http://$ip:8060/launch/837?contentId=$videoId'),
+      ).timeout(const Duration(milliseconds: 1500));
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
   }
 
   void _stopDiscovery() {
