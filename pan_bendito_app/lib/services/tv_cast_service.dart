@@ -9,6 +9,7 @@ class DiscoveredTv {
   final String id;
   final String name;
   final String ip;
+  final String locationUrl;
   final String? dialAppUrl;
   final String? manufacturer;
   final String? model;
@@ -17,12 +18,25 @@ class DiscoveredTv {
     required this.id,
     required this.name,
     required this.ip,
+    required this.locationUrl,
     this.dialAppUrl,
     this.manufacturer,
     this.model,
   });
 
-  bool get supportsDirectLaunch => dialAppUrl != null && dialAppUrl!.isNotEmpty;
+  bool get isSamsung =>
+      (manufacturer?.toLowerCase().contains('samsung') ?? false) ||
+      locationUrl.contains(':8001') ||
+      locationUrl.contains(':8002');
+
+  bool get isLG =>
+      (manufacturer?.toLowerCase().contains('lg') ?? false) ||
+      locationUrl.contains(':1970') ||
+      locationUrl.contains(':8080');
+
+  bool get isRoku =>
+      (manufacturer?.toLowerCase().contains('roku') ?? false) ||
+      locationUrl.contains(':8060');
 }
 
 /// Servicio de descubrimiento y transmisión a televisores (Smart TV, DLNA, DIAL, Cast)
@@ -52,15 +66,17 @@ class TvCastService {
           final datagram = _socket?.receive();
           if (datagram != null) {
             final raw = utf8.decode(datagram.data, allowMalformed: true);
-            _parseAndProcessResponse(raw, datagram.address.address, onDeviceFound);
+            _parseAndProcessResponse(
+                raw, datagram.address.address, onDeviceFound);
           }
         }
       });
 
-      // Enviar solicitudes de búsqueda SSDP para Smart TVs (DIAL, DLNA, UPnP)
+      // Enviar solicitudes de búsqueda SSDP para Smart TVs (DIAL, DLNA, UPnP, Roku)
       final targets = [
         'urn:dial-multiscreen-org:service:dial:1',
         'urn:schemas-upnp-org:device:MediaRenderer:1',
+        'roku:ecp',
         'ssdp:all',
       ];
 
@@ -112,7 +128,8 @@ class TvCastService {
     _processedLocations.add(locationUrl);
 
     try {
-      final res = await http.get(Uri.parse(locationUrl)).timeout(
+      final locUri = Uri.parse(locationUrl);
+      final res = await http.get(locUri).timeout(
             const Duration(milliseconds: 2000),
           );
 
@@ -153,7 +170,19 @@ class TvCastService {
           }
         }
 
-        // Si applicationUrl no termina con barra, normalizar
+        // Si applicationUrl es null, deducir según puerto y fabricante
+        if (applicationUrl == null || applicationUrl.isEmpty) {
+          if (locUri.port == 8001 || locUri.port == 8002) {
+            applicationUrl = 'http://$senderIp:8001/ms/1.0/';
+          } else if (locUri.port == 8008) {
+            applicationUrl = 'http://$senderIp:8008/apps/';
+          } else if (locUri.port == 1970 || locUri.port == 8080) {
+            applicationUrl = 'http://$senderIp:1970/apps/';
+          } else {
+            applicationUrl = 'http://$senderIp:${locUri.port}/apps/';
+          }
+        }
+
         if (applicationUrl != null && !applicationUrl.endsWith('/')) {
           applicationUrl = '$applicationUrl/';
         }
@@ -162,6 +191,7 @@ class TvCastService {
           id: locationUrl,
           name: name,
           ip: senderIp,
+          locationUrl: locationUrl,
           dialAppUrl: applicationUrl,
           manufacturer: mfg,
         );
@@ -175,22 +205,98 @@ class TvCastService {
 
   /// Envía la orden directa a la Smart TV para abrir YouTube y reproducir el directo
   Future<bool> castToDevice(DiscoveredTv tv, String videoId) async {
-    if (tv.dialAppUrl != null && tv.dialAppUrl!.isNotEmpty) {
-      try {
-        final uri = Uri.parse('${tv.dialAppUrl}YouTube');
-        final response = await http.post(
-          uri,
-          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-          body: 'v=$videoId',
-        ).timeout(const Duration(seconds: 4));
+    final candidates = <String>[];
+    final ip = tv.ip;
 
-        return response.statusCode == 200 ||
-            response.statusCode == 201 ||
-            response.statusCode == 204;
+    // 1. DIAL App URL explícito
+    if (tv.dialAppUrl != null && tv.dialAppUrl!.isNotEmpty) {
+      final base = tv.dialAppUrl!;
+      candidates.add('${base}YouTube');
+      candidates.add('${base}111299001912'); // Samsung YouTube App ID
+      candidates.add('${base}youtube.leanback.v4'); // LG YouTube App ID
+    }
+
+    // 2. Variantes de Samsung Tizen (puertos 8001 y 8002)
+    candidates.add('http://$ip:8001/ms/1.0/YouTube');
+    candidates.add('http://$ip:8001/api/v2/applications/111299001912');
+    candidates.add('http://$ip:8001/api/v2/applications/YouTube');
+    candidates.add('http://$ip:8002/ms/1.0/YouTube');
+
+    // 3. Variantes de LG webOS (puertos 1970, 8080, 3000)
+    candidates.add('http://$ip:1970/apps/YouTube');
+    candidates.add('http://$ip:8080/dial/apps/YouTube');
+    candidates.add('http://$ip:8080/apps/YouTube');
+    candidates.add('http://$ip:3000/apps/YouTube');
+
+    // 4. Roku ECP (puerto 8060)
+    candidates.add('http://$ip:8060/launch/837?contentId=$videoId');
+
+    // 5. Android TV / Google Cast DIAL (puerto 8008)
+    candidates.add('http://$ip:8008/apps/YouTube');
+    candidates.add('http://$ip:8008/apps/111299001912');
+
+    // 6. Basado en locationUrl
+    final locUri = Uri.tryParse(tv.locationUrl);
+    if (locUri != null && locUri.hasPort) {
+      candidates.add('${locUri.scheme}://${locUri.host}:${locUri.port}/apps/YouTube');
+    }
+
+    final uniqueCandidates = candidates.toSet().toList();
+
+    for (final candidate in uniqueCandidates) {
+      try {
+        final uri = Uri.parse(candidate);
+
+        // A. Si es Roku ECP
+        if (candidate.contains(':8060/launch/837')) {
+          final res = await http.post(uri).timeout(const Duration(milliseconds: 1500));
+          if (res.statusCode == 200 || res.statusCode == 204) return true;
+          continue;
+        }
+
+        // B. Si es Samsung REST API
+        if (candidate.contains('/api/v2/applications/')) {
+          final res = await http.post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'action': 'start'}),
+          ).timeout(const Duration(milliseconds: 1500));
+          if (res.statusCode == 200 || res.statusCode == 201) return true;
+        }
+
+        // C. DIAL POST estándar (text/plain y URL encoded)
+        final resText = await http.post(
+          uri,
+          headers: {'Content-Type': 'text/plain; charset=utf-8'},
+          body: 'v=$videoId',
+        ).timeout(const Duration(milliseconds: 1800));
+
+        if (resText.statusCode == 200 ||
+            resText.statusCode == 201 ||
+            resText.statusCode == 202 ||
+            resText.statusCode == 204) {
+          return true;
+        }
+
+        // D. Intento con parámetro query en URL
+        final uriWithQuery = uri.replace(queryParameters: {'v': videoId});
+        final resQuery = await http.post(
+          uriWithQuery,
+          headers: {'Content-Type': 'text/plain; charset=utf-8'},
+          body: 'v=$videoId',
+        ).timeout(const Duration(milliseconds: 1800));
+
+        if (resQuery.statusCode == 200 ||
+            resQuery.statusCode == 201 ||
+            resQuery.statusCode == 202 ||
+            resQuery.statusCode == 204) {
+          return true;
+        }
       } catch (_) {
-        return false;
+        // Seguir probando el siguiente endpoint
       }
     }
+
     return false;
   }
 
