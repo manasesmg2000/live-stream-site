@@ -41,7 +41,7 @@ jobs:
           
           # Inyectar permisos de red, wifi, multicast, queries y nombre PAN BENDITO en AndroidManifest
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i 's/android:label="[^"]*"/android:label="PAN BENDITO" android:roundIcon="@mipmap\/ic_launcher_round" android:allowBackup="false"/g' "$MANIFEST"
+          sed -i 's/android:label="[^"]*"/android:label="PAN BENDITO" android:allowBackup="false"/g' "$MANIFEST"
           sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <queries>\n        <package android:name="com.google.android.youtube" />\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="vnd.youtube" />\n        </intent>\n    </queries>' "$MANIFEST"
 
           # Generar certificado release oficial de Pan Bendito (evita alerta de Play Protect por debug key)
