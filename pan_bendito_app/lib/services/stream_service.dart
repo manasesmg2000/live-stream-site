@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/stream_state.dart';
+import 'native_bridge.dart';
 
 class StreamService {
   static const String githubApiUrl =
@@ -19,6 +20,7 @@ class StreamService {
 
   Timer? _pollingTimer;
   http.Client? _sseClient;
+  bool _initialCheckDone = false;
 
   void start() {
     // 1. Obtener estado inicial
@@ -94,7 +96,6 @@ class StreamService {
           } catch (_) {}
         }
       }, onError: (_) {
-        // Reintentar conexión SSE tras 5 segundos
         Future.delayed(const Duration(seconds: 5), _connectRealtime);
       }, onDone: () {
         Future.delayed(const Duration(seconds: 5), _connectRealtime);
@@ -105,20 +106,38 @@ class StreamService {
   void _handleSignal(String msg) {
     msg = msg.trim();
     if (msg.startsWith('LIVE:')) {
-      final vid = extractVideoId(msg.substring(5));
-      _emitState(StreamState(isLive: true, videoId: vid));
-    } else if (msg == 'OFFLINE') {
-      _emitState(StreamState.offline());
+      final parts = msg.substring(5).split('|');
+      final vid = extractVideoId(parts[0]);
+      final lastVid = parts.length > 1 ? extractVideoId(parts[1]) : _currentState.lastVideoId;
+      _emitState(StreamState(isLive: true, videoId: vid, lastVideoId: lastVid));
+    } else if (msg.startsWith('OFFLINE')) {
+      final parts = msg.split('|');
+      final lastVid = parts.length > 1 ? extractVideoId(parts[1]) : (_currentState.videoId.isNotEmpty ? _currentState.videoId : _currentState.lastVideoId);
+      _emitState(StreamState.offline(lastVideoId: lastVid));
     }
   }
 
   void _emitState(StreamState newState) {
     if (newState.isLive == _currentState.isLive &&
-        newState.videoId == _currentState.videoId) {
+        newState.videoId == _currentState.videoId &&
+        newState.lastVideoId == _currentState.lastVideoId) {
       return;
     }
+
+    final wasOffline = !_currentState.isLive;
+    final isNowLive = newState.isLive && newState.videoId.isNotEmpty;
+
     _currentState = newState;
     _stateController.add(_currentState);
+
+    // Si pasa de no-en-vivo a en-vivo (o es la primera carga y está en directo), emitir notificación nativa
+    if (isNowLive && (wasOffline || !_initialCheckDone)) {
+      NativeBridge.showLiveNotification(
+        title: '🔴 ¡Estamos EN DIRECTO!',
+        body: 'Ha comenzado el culto en directo de Pan Bendito. Toca para verlo.',
+      );
+    }
+    _initialCheckDone = true;
   }
 
   static String extractVideoId(String input) {
