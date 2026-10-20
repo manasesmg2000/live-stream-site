@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'tv_cast_modal.dart';
 
@@ -13,38 +13,46 @@ class StreamPlayer extends StatefulWidget {
 }
 
 class _StreamPlayerState extends State<StreamPlayer> {
-  late YoutubePlayerController _controller;
+  late final WebViewController _controller;
 
   @override
   void initState() {
     super.initState();
-    _initController(widget.videoId);
-  }
-
-  void _initController(String id) {
-    _controller = YoutubePlayerController(
-      initialVideoId: id,
-      flags: const YoutubePlayerFlags(
-        autoPlay: true,
-        mute: false,
-        isLive: true,
-        enableCaption: false,
-      ),
-    );
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF000000))
+      ..loadHtmlString(_buildHtml(widget.videoId));
   }
 
   @override
   void didUpdateWidget(covariant StreamPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.videoId != widget.videoId) {
-      _controller.load(widget.videoId);
+      _controller.loadHtmlString(_buildHtml(widget.videoId));
     }
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  String _buildHtml(String videoId) {
+    return '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; background: #000; }
+    html, body { width: 100%; height: 100%; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    iframe { width: 100%; height: 100%; border: none; }
+  </style>
+</head>
+<body>
+  <iframe
+    src="https://www.youtube.com/embed/$videoId?autoplay=1&enablejsapi=1&playsinline=1"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen>
+  </iframe>
+</body>
+</html>
+''';
   }
 
   Future<void> _openYouTube() async {
@@ -58,11 +66,12 @@ class _StreamPlayerState extends State<StreamPlayer> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Contenedor del reproductor de vídeo
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+        // Contenedor 16:9 con sombra y bordes redondeados
+        AspectRatio(
+          aspectRatio: 16 / 9,
           child: Container(
             decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.6),
@@ -71,14 +80,9 @@ class _StreamPlayerState extends State<StreamPlayer> {
                 ),
               ],
             ),
-            child: YoutubePlayer(
-              controller: _controller,
-              showVideoProgressIndicator: true,
-              progressIndicatorColor: const Color(0xFFC0392B),
-              progressColors: const ProgressBarColors(
-                playedColor: Color(0xFFC0392B),
-                handleColor: Color(0xFFE74C3C),
-              ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: WebViewWidget(controller: _controller),
             ),
           ),
         ),
