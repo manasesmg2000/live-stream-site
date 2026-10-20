@@ -208,7 +208,7 @@ class TvCastService {
     final candidates = <String>[];
     final ip = tv.ip;
 
-    // 1. DIAL App URL explícito
+    // 1. DIAL App URL explícito detectado en SSDP
     if (tv.dialAppUrl != null && tv.dialAppUrl!.isNotEmpty) {
       final base = tv.dialAppUrl!;
       candidates.add('${base}YouTube');
@@ -220,6 +220,7 @@ class TvCastService {
     candidates.add('http://$ip:8001/ms/1.0/YouTube');
     candidates.add('http://$ip:8001/api/v2/applications/111299001912');
     candidates.add('http://$ip:8001/api/v2/applications/YouTube');
+    candidates.add('http://$ip:8001/api/v2/applications/org.tizen.browser');
     candidates.add('http://$ip:8002/ms/1.0/YouTube');
 
     // 3. Variantes de LG webOS (puertos 1970, 8080, 3000)
@@ -230,6 +231,7 @@ class TvCastService {
 
     // 4. Roku ECP (puerto 8060)
     candidates.add('http://$ip:8060/launch/837?contentId=$videoId');
+    candidates.add('http://$ip:8060/input/837?contentId=$videoId');
 
     // 5. Android TV / Google Cast DIAL (puerto 8008)
     candidates.add('http://$ip:8008/apps/YouTube');
@@ -248,7 +250,7 @@ class TvCastService {
         final uri = Uri.parse(candidate);
 
         // A. Si es Roku ECP
-        if (candidate.contains(':8060/launch/837')) {
+        if (candidate.contains(':8060/')) {
           final res = await http.post(uri).timeout(const Duration(milliseconds: 1500));
           if (res.statusCode == 200 || res.statusCode == 204) return true;
           continue;
@@ -256,40 +258,69 @@ class TvCastService {
 
         // B. Si es Samsung REST API
         if (candidate.contains('/api/v2/applications/')) {
-          final res = await http.post(
-            uri,
-            headers: {'Content-Type': 'application/json'},
-            body: json.encode({'action': 'start'}),
-          ).timeout(const Duration(milliseconds: 1500));
-          if (res.statusCode == 200 || res.statusCode == 201) return true;
+          final originHeader = 'http://$ip:8001';
+          final bodies = [
+            json.encode({'action': 'start', 'url': 'https://www.youtube.com/watch?v=$videoId'}),
+            json.encode({'data': {'url': 'https://www.youtube.com/watch?v=$videoId'}}),
+            json.encode({'action': 'start'}),
+          ];
+          for (final bodyJson in bodies) {
+            try {
+              final res = await http.post(
+                uri,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Origin': originHeader,
+                  'Referer': originHeader,
+                },
+                body: bodyJson,
+              ).timeout(const Duration(milliseconds: 1500));
+              if (res.statusCode == 200 || res.statusCode == 201 || res.statusCode == 202) {
+                return true;
+              }
+            } catch (_) {}
+          }
         }
 
-        // C. DIAL POST estándar (text/plain y URL encoded)
-        final resText = await http.post(
-          uri,
-          headers: {'Content-Type': 'text/plain; charset=utf-8'},
-          body: 'v=$videoId',
-        ).timeout(const Duration(milliseconds: 1800));
+        // C. DIAL POST estándar (text/plain y form-urlencoded con Origin)
+        final origin = 'http://$ip:${uri.port > 0 ? uri.port : 80}';
+        final headersList = [
+          {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Origin': 'https://www.youtube.com',
+          },
+          {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Origin': origin,
+          },
+          {
+            'Content-Type': 'text/plain; charset=utf-8',
+          },
+        ];
 
-        if (resText.statusCode == 200 ||
-            resText.statusCode == 201 ||
-            resText.statusCode == 202 ||
-            resText.statusCode == 204) {
-          return true;
+        for (final hdrs in headersList) {
+          try {
+            final res = await http.post(
+              uri,
+              headers: hdrs,
+              body: 'v=$videoId',
+            ).timeout(const Duration(milliseconds: 1500));
+
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              return true;
+            }
+          } catch (_) {}
         }
 
         // D. Intento con parámetro query en URL
         final uriWithQuery = uri.replace(queryParameters: {'v': videoId});
         final resQuery = await http.post(
           uriWithQuery,
-          headers: {'Content-Type': 'text/plain; charset=utf-8'},
+          headers: {'Content-Type': 'text/plain; charset=utf-8', 'Origin': origin},
           body: 'v=$videoId',
-        ).timeout(const Duration(milliseconds: 1800));
+        ).timeout(const Duration(milliseconds: 1500));
 
-        if (resQuery.statusCode == 200 ||
-            resQuery.statusCode == 201 ||
-            resQuery.statusCode == 202 ||
-            resQuery.statusCode == 204) {
+        if (resQuery.statusCode >= 200 && resQuery.statusCode < 300) {
           return true;
         }
       } catch (_) {
