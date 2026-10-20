@@ -32,12 +32,16 @@ jobs:
         working-directory: ./pan_bendito_app
         run: |
           cp pubspec.yaml pubspec.backup.yaml
+          mkdir -p res.backup
+          cp -r android/app/src/main/res/* res.backup/ 2>/dev/null || true
           rm -rf android
           flutter create . --org com.iglesiapanbendito --project-name pan_bendito_app --platforms=android
           cp pubspec.backup.yaml pubspec.yaml
+          cp -r res.backup/* android/app/src/main/res/ 2>/dev/null || true
           
-          # Inyectar permisos de red, wifi, multicast y queries en AndroidManifest
+          # Inyectar permisos de red, wifi, multicast, queries y nombre PAN BENDITO en AndroidManifest
           MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i 's/android:label="[^"]*"/android:label="PAN BENDITO"/g' "$MANIFEST"
           sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <queries>\n        <package android:name="com.google.android.youtube" />\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="vnd.youtube" />\n        </intent>\n    </queries>' "$MANIFEST"
 
       - name: Instalar dependencias Flutter
@@ -52,13 +56,14 @@ jobs:
         working-directory: ./pan_bendito_app
         run: |
           mkdir -p release-output
+          cp build/app/outputs/flutter-apk/app-release.apk release-output/PanBendito.apk
           cp build/app/outputs/flutter-apk/app-release.apk release-output/IglesiaPanBendito.apk
 
       - name: Subir APK como artefacto descargable
         uses: actions/upload-artifact@v4
         with:
           name: IglesiaPanBendito-Android-APK
-          path: pan_bendito_app/release-output/IglesiaPanBendito.apk
+          path: pan_bendito_app/release-output/PanBendito.apk
           if-no-files-found: error
 
   build-ios:
@@ -82,8 +87,9 @@ jobs:
           flutter create . --org com.iglesiapanbendito --project-name pan_bendito_app --platforms=ios
           cp pubspec.backup.yaml pubspec.yaml
           
-          # Inyectar esquemas de YouTube en Info.plist
+          # Inyectar esquemas de YouTube y nombre PAN BENDITO en Info.plist
           PLIST="ios/Runner/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string 'PAN BENDITO'" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'PAN BENDITO'" "$PLIST" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes array" "$PLIST" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes:0 string vnd.youtube" "$PLIST" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes:1 string youtube" "$PLIST" 2>/dev/null || true
