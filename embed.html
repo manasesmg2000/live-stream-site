@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Pan Bendito - Reproductor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; background: #000; }
+    html, body { width: 100%; height: 100%; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    iframe { width: 100%; height: 100%; border: none; }
+  </style>
+</head>
+<body>
+  <iframe
+    id="player"
+    src=""
+    title="Directo Iglesia Evangélica Pan Bendito"
+    frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; presentation; remote-playback"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allowfullscreen>
+  </iframe>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const vid = params.get('v') || '1Qm3vRe8iJg';
+    const origin = encodeURIComponent(window.location.origin);
+    document.getElementById('player').src = 
+      `https://www.youtube.com/embed/${vid}?autoplay=1&enablejsapi=1&playsinline=1&rel=0&modestbranding=1&origin=${origin}`;
+  </script>
+</body>
+</html>
