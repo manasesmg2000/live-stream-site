@@ -3,6 +3,9 @@ name: Compilar App Android e iOS
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'pan_bendito_app/**'
+      - '.github/workflows/build-app.yml'
   workflow_dispatch:
 
 jobs:
@@ -33,9 +36,9 @@ jobs:
           flutter create . --org com.iglesiapanbendito --project-name pan_bendito_app --platforms=android
           cp pubspec.backup.yaml pubspec.yaml
           
-          # Inyectar permisos de internet y queries en AndroidManifest
+          # Inyectar permisos de red, wifi, multicast y queries en AndroidManifest
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <queries>\n        <package android:name="com.google.android.youtube" />\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="vnd.youtube" />\n        </intent>\n    </queries>' "$MANIFEST"
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <queries>\n        <package android:name="com.google.android.youtube" />\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="vnd.youtube" />\n        </intent>\n    </queries>' "$MANIFEST"
 
       - name: Instalar dependencias Flutter
         working-directory: ./pan_bendito_app
