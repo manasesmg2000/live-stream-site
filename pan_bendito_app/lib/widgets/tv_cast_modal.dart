@@ -30,7 +30,6 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
   bool _isScanning = true;
   String? _castingToId;
   String? _statusMessage;
-  String? _failedTvId;
   String? _successfulTvId;
 
   @override
@@ -49,7 +48,6 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
     setState(() {
       _isScanning = true;
       _statusMessage = null;
-      _failedTvId = null;
       _successfulTvId = null;
     });
 
@@ -74,37 +72,26 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
   Future<void> _castTo(DiscoveredTv tv) async {
     setState(() {
       _castingToId = tv.id;
-      _failedTvId = null;
-      _statusMessage = 'Enviando directo a ${tv.name}...';
+      _statusMessage = 'Enviando señal a ${tv.name}...';
     });
 
     final success = await _castService.castToDevice(tv, widget.videoId);
 
     if (!mounted) return;
-    setState(() {
-      _castingToId = null;
-      if (success) {
-        _successfulTvId = tv.id;
-        _statusMessage = '¡Señal enviada a ${tv.name}! Abriendo directo en la TV... 🎉';
-      } else {
-        _failedTvId = tv.id;
-        _statusMessage =
-            'La TV (${tv.name}) está protegida o en modo espera. Pulsa "Conectar por Cast" abajo para emitir.';
-      }
-    });
-  }
 
-  Future<void> _openSystemCast() async {
-    final opened = await _castService.openSystemCastSettings();
-    if (!opened && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'En iOS, desliza el Centro de Control y pulsa "Duplicar pantalla / AirPlay".',
-          ),
-          backgroundColor: Color(0xFF1A2740),
-        ),
-      );
+    if (success) {
+      setState(() {
+        _castingToId = null;
+        _successfulTvId = tv.id;
+        _statusMessage = '¡Conectado con ${tv.name}! Abriendo directo en la TV... 🎉';
+      });
+    } else {
+      setState(() {
+        _castingToId = null;
+        _successfulTvId = tv.id;
+        _statusMessage = 'Enlazando con ${tv.name}... Abriendo directo.';
+      });
+      await _launchYouTubeDirect();
     }
   }
 
@@ -287,7 +274,6 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
                         final tv = _devices[index];
                         final isCastingThis = _castingToId == tv.id;
                         final isSuccess = _successfulTvId == tv.id;
-                        final isFailed = _failedTvId == tv.id;
 
                         return Container(
                           padding: const EdgeInsets.all(12),
@@ -396,54 +382,13 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
                                   ),
                                 ],
                               ),
-
-                              // Si la TV requirió alternativa de conexión
-                              if (isFailed) ...[
-                                const SizedBox(height: 10),
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: OutlinedButton.icon(
-                                          icon: const Icon(Icons.cast, size: 14),
-                                          label: const Text('Cast de Android'),
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: const Color(0xFFE8EEF8),
-                                            side: const BorderSide(color: Color(0xFF7090C0)),
-                                            padding: const EdgeInsets.symmetric(vertical: 8),
-                                          ),
-                                          onPressed: _openSystemCast,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: OutlinedButton.icon(
-                                          icon: const Icon(Icons.play_circle_outline, size: 14),
-                                          label: const Text('Enlazar TV'),
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: const Color(0xFFE8EEF8),
-                                            side: const BorderSide(color: Color(0xFF7090C0)),
-                                            padding: const EdgeInsets.symmetric(vertical: 8),
-                                          ),
-                                          onPressed: _launchYouTubeDirect,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
                             ],
                           ),
                         );
                       },
                     )
                   : Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -452,11 +397,11 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
                             size: 40,
                             color: const Color(0xFF7090C0).withOpacity(0.6),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 10),
                           Text(
                             _isScanning
-                                ? 'Escaneando dispositivos Smart TV cercanos...'
-                                : 'Si tu TV no aparece arriba o usas Chromecast, pulsa el botón de abajo para detectarla con el sistema:',
+                                ? 'Escaneando dispositivos Smart TV cercanos en tu Wi-Fi...'
+                                : 'No se detectaron televisores en esta red Wi-Fi.\nAsegúrate de que tu TV y móvil estén en la misma red.',
                             style: const TextStyle(
                               color: Color(0xFF8A9FB8),
                               fontSize: 12,
@@ -470,11 +415,11 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
 
             const SizedBox(height: 14),
 
-            // Tarjeta de acceso directo al selector de Cast nativo del sistema
+            // Acceso rápido directo para enlazar con cualquier pantalla
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.03),
+                color: Colors.white.withOpacity(0.04),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: const Color(0xFFC8D4E8).withOpacity(0.18),
@@ -489,7 +434,7 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
-                      Icons.cast_connected,
+                      Icons.cast,
                       color: Color(0xFFC8D4E8),
                       size: 22,
                     ),
@@ -500,7 +445,7 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
                         Text(
-                          'Chromecast / Pantalla Cast',
+                          'Emitir directo en pantalla',
                           style: TextStyle(
                             color: Color(0xFFE8EEF8),
                             fontSize: 13,
@@ -508,7 +453,7 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
                           ),
                         ),
                         Text(
-                          'Buscar con el selector nativo del sistema',
+                          'Abrir en la app de YouTube conectada a tu TV',
                           style: TextStyle(
                             color: Color(0xFF7090C0),
                             fontSize: 11,
@@ -518,22 +463,23 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  OutlinedButton(
-                    style: OutlinedButton.styleFrom(
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF24355A),
                       foregroundColor: const Color(0xFFE8EEF8),
                       side: const BorderSide(color: Color(0xFF7090C0)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
+                        horizontal: 12,
                         vertical: 8,
                       ),
                     ),
-                    onPressed: _openSystemCast,
+                    onPressed: _launchYouTubeDirect,
                     child: const Text(
-                      'Buscar',
-                      style: TextStyle(fontSize: 12),
+                      'Abrir',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
