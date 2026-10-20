@@ -124,17 +124,26 @@ class StreamService {
       return;
     }
 
+    final wasLive = _currentState.isLive;
     final wasOffline = !_currentState.isLive;
     final isNowLive = newState.isLive && newState.videoId.isNotEmpty;
+    final isNowOffline = !newState.isLive;
 
     _currentState = newState;
     _stateController.add(_currentState);
 
-    // Si pasa de no-en-vivo a en-vivo (o es la primera carga y está en directo), emitir notificación nativa
+    // Si pasa de offline a live, emitir notificación de inicio
     if (isNowLive && (wasOffline || !_initialCheckDone)) {
       NativeBridge.showLiveNotification(
         title: '🔴 ¡Estamos EN DIRECTO!',
         body: 'Ha comenzado el culto en directo de Pan Bendito. Toca para verlo.',
+      );
+    }
+    // Si pasa de live a offline, emitir notificación de finalización
+    else if (isNowOffline && wasLive && _initialCheckDone) {
+      NativeBridge.showLiveNotification(
+        title: '⏹ Culto finalizado',
+        body: 'El directo ha terminado. ¡Gracias por acompañarnos! Ya puedes ver el culto anterior.',
       );
     }
     _initialCheckDone = true;
