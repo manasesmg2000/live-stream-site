@@ -34,12 +34,10 @@ jobs:
           cp pubspec.yaml pubspec.backup.yaml
           mkdir -p res.backup
           cp -r android/app/src/main/res/* res.backup/ 2>/dev/null || true
-          cp android/app/build.gradle build.gradle.backup 2>/dev/null || true
           rm -rf android
           flutter create . --org com.iglesiapanbendito --project-name pan_bendito_app --platforms=android
           cp pubspec.backup.yaml pubspec.yaml
           cp -r res.backup/* android/app/src/main/res/ 2>/dev/null || true
-          cp build.gradle.backup android/app/build.gradle 2>/dev/null || true
           
           # Inyectar permisos de red, wifi, multicast, queries y nombre PAN BENDITO en AndroidManifest
           MANIFEST="android/app/src/main/AndroidManifest.xml"
@@ -48,7 +46,7 @@ jobs:
 
           # Generar certificado release oficial de Pan Bendito (evita alerta de Play Protect por debug key)
           keytool -genkeypair -v \
-            -keystore android/app/panbendito.jks \
+            -keystore panbendito.jks \
             -alias panbendito \
             -keyalg RSA \
             -keysize 2048 \
@@ -65,12 +63,32 @@ jobs:
         working-directory: ./pan_bendito_app
         run: flutter build apk --release
 
-      - name: Renombrar y preparar APK
+      - name: Renombrar y firmar con certificado Release oficial (Play Protect)
         working-directory: ./pan_bendito_app
         run: |
           mkdir -p release-output
-          cp build/app/outputs/flutter-apk/app-release.apk release-output/PanBendito.apk
-          cp build/app/outputs/flutter-apk/app-release.apk release-output/IglesiaPanBendito.apk
+          RAW_APK="build/app/outputs/flutter-apk/app-release.apk"
+          
+          # Localizar apksigner oficial de Android SDK
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort | tail -n 1)
+          echo "Usando apksigner en: $APKSIGNER"
+          
+          # Firmar APK con el certificado Release de Pan Bendito
+          $APKSIGNER sign --ks panbendito.jks \
+            --ks-pass pass:PanBendito2026! \
+            --key-pass pass:PanBendito2026! \
+            --ks-key-alias panbendito \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out release-output/PanBendito.apk \
+            "$RAW_APK"
+          
+          # Verificar la firma
+          $APKSIGNER verify --verbose release-output/PanBendito.apk
+          
+          # Copia con nombre alternativo
+          cp release-output/PanBendito.apk release-output/IglesiaPanBendito.apk
 
       - name: Subir APK como artefacto descargable
         uses: actions/upload-artifact@v4
