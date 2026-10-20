@@ -21,7 +21,7 @@
     </queries>
 
     <application
-        android:label="Pan Bendito"
+        android:label="PAN BENDITO"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:hardwareAccelerated="true">
