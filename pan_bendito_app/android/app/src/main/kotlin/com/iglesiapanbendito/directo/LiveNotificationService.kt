@@ -68,10 +68,9 @@ class LiveNotificationService : Service() {
                     conn.setRequestProperty("Accept", "text/event-stream")
 
                     val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                    var line: String?
-
-                    while (isRunning && reader.readLine().also { line = it } != null) {
-                        val currentLine = line?.trim() ?: continue
+                    reader.forEachLine { line ->
+                        if (!isRunning) return@forEachLine
+                        val currentLine = line.trim()
                         if (currentLine.startsWith("data:")) {
                             val jsonStr = currentLine.substring(5).trim()
                             handleMessage(jsonStr)
