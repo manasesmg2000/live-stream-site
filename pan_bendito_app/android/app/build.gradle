@@ -47,9 +47,20 @@ android {
         multiDexEnabled true
     }
 
+    signingConfigs {
+        release {
+            storeFile file("panbendito.jks")
+            storePassword "PanBendito2026!"
+            keyAlias "panbendito"
+            keyPassword "PanBendito2026!"
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled false
             shrinkResources false
         }
