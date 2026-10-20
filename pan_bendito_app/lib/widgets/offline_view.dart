@@ -37,12 +37,11 @@ class OfflineView extends StatelessWidget {
               ),
               child: ClipOval(
                 child: Image.asset(
-                  'assets/images/logo.jpg',
+                  'assets/images/logo.png',
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.church,
-                    size: 64,
-                    color: Color(0xFFC8D4E8),
+                  errorBuilder: (_, __, ___) => Image.asset(
+                    'assets/images/logo.jpg',
+                    fit: BoxFit.cover,
                   ),
                 ),
               ),
