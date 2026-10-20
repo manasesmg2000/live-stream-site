@@ -58,11 +58,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         child: ClipOval(
                           child: Image.asset(
-                            'assets/images/logo.jpg',
+                            'assets/images/logo.png',
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.church,
-                              color: Color(0xFFC8D4E8),
+                            errorBuilder: (_, __, ___) => Image.asset(
+                              'assets/images/logo.jpg',
+                              fit: BoxFit.cover,
                             ),
                           ),
                         ),
@@ -73,12 +73,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: const [
                           Text(
-                            'Iglesia de Pan Bendito',
+                            'PAN BENDITO',
                             style: TextStyle(
                               color: Color(0xFFE8EEF8),
-                              fontSize: 15,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              letterSpacing: 0.3,
+                              letterSpacing: 0.6,
                             ),
                           ),
                           Text(
