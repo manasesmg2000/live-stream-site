@@ -28,9 +28,8 @@ class _StreamPlayerState extends State<StreamPlayer> {
       ..setUserAgent(
         'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36',
       )
-      ..loadHtmlString(
-        _buildHtml(videoId),
-        baseUrl: 'https://manasesmg2000.github.io',
+      ..loadRequest(
+        Uri.parse('https://manasesmg2000.github.io/live-stream-site/embed.html?v=$videoId'),
       );
   }
 
@@ -38,9 +37,8 @@ class _StreamPlayerState extends State<StreamPlayer> {
   void didUpdateWidget(covariant StreamPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.videoId != widget.videoId) {
-      _controller.loadHtmlString(
-        _buildHtml(widget.videoId),
-        baseUrl: 'https://manasesmg2000.github.io',
+      _controller.loadRequest(
+        Uri.parse('https://manasesmg2000.github.io/live-stream-site/embed.html?v=${widget.videoId}'),
       );
     }
   }
@@ -153,9 +151,8 @@ class _StreamPlayerState extends State<StreamPlayer> {
               icon: const Icon(Icons.refresh, size: 18, color: Color(0xFF7090C0)),
               tooltip: 'Recargar vídeo',
               onPressed: () {
-                _controller.loadHtmlString(
-                  _buildHtml(widget.videoId),
-                  baseUrl: 'https://manasesmg2000.github.io',
+                _controller.loadRequest(
+                  Uri.parse('https://manasesmg2000.github.io/live-stream-site/embed.html?v=${widget.videoId}'),
                 );
               },
             ),
