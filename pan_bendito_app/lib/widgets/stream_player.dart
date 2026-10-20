@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../services/tv_cast_service.dart';
-import 'tv_cast_modal.dart';
+import '../services/native_bridge.dart';
 
 class StreamPlayer extends StatefulWidget {
   final String videoId;
@@ -33,20 +32,7 @@ class _StreamPlayerState extends State<StreamPlayer> {
         'TvCaster',
         onMessageReceived: (JavaScriptMessage message) async {
           final targetVideoId = message.message.isNotEmpty ? message.message : widget.videoId;
-          final tvIp = await TvCastService.discoverFirstTvIp();
-          if (tvIp != null) {
-            await TvCastService.launchYouTubeOnTv(tvIp, targetVideoId);
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Vídeo enviado a la TV ($tvIp)'),
-                  backgroundColor: const Color(0xFF1B4D3E),
-                ),
-              );
-            }
-          } else if (mounted) {
-            TvCastModal.show(context, targetVideoId);
-          }
+          await _openInYouTube(targetVideoId);
         },
       )
       ..loadRequest(
@@ -64,9 +50,13 @@ class _StreamPlayerState extends State<StreamPlayer> {
     }
   }
 
-  Future<void> _openYouTube() async {
-    final uri = Uri.parse('https://www.youtube.com/watch?v=${widget.videoId}');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  Future<void> _openInYouTube([String? customId]) async {
+    final vid = customId ?? widget.videoId;
+    final success = await NativeBridge.openYouTube(vid);
+    if (!success) {
+      final uri = Uri.parse('https://www.youtube.com/watch?v=$vid');
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -100,48 +90,39 @@ class _StreamPlayerState extends State<StreamPlayer> {
         // Botones de acción debajo del reproductor
         Row(
           children: [
-            // Botón Transmitir a la TV (Búsqueda DIAL activa)
+            // Botón principal: Transmitir / Abrir en YouTube
             Expanded(
               child: ElevatedButton.icon(
-                icon: const Icon(Icons.tv, size: 18),
-                label: const Text('Transmitir a la TV'),
+                icon: const Icon(Icons.play_circle_filled, color: Colors.red, size: 22),
+                label: const Text(
+                  'Transmitir / Abrir en YouTube',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF24355A),
                   foregroundColor: const Color(0xFFE8EEF8),
-                  side: const BorderSide(color: Color(0xFF7090C0), width: 0.8),
+                  side: const BorderSide(color: Color(0xFF7090C0), width: 1),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  elevation: 3,
                 ),
-                onPressed: () => TvCastModal.show(context, widget.videoId),
+                onPressed: () => _openInYouTube(),
               ),
             ),
             const SizedBox(width: 8),
 
-            // Botón Abrir en YouTube
-            OutlinedButton.icon(
-              icon: const Icon(Icons.open_in_new, size: 16),
-              label: const Text('YouTube'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFE8EEF8),
-                side: BorderSide(
-                  color: const Color(0xFFC8D4E8).withOpacity(0.25),
-                ),
-                backgroundColor: Colors.white.withOpacity(0.04),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-              ),
-              onPressed: _openYouTube,
-            ),
-            const SizedBox(width: 6),
-
             // Botón Recargar reproductor
             IconButton(
-              icon: const Icon(Icons.refresh, size: 18, color: Color(0xFF7090C0)),
-              tooltip: 'Recargar vídeo',
+              icon: const Icon(Icons.refresh, size: 20, color: Color(0xFF7090C0)),
+              tooltip: 'Recargar reproductor',
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white.withOpacity(0.05),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: () {
                 _controller.loadRequest(
                   Uri.parse('https://manasesmg2000.github.io/live-stream-site/embed.html?v=${widget.videoId}'),
