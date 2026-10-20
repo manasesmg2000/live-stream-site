@@ -28,21 +28,14 @@ jobs:
       - name: Generar estructura nativa de Android
         working-directory: ./pan_bendito_app
         run: |
-          # Guardar copia de archivos Dart y assets
           cp pubspec.yaml pubspec.backup.yaml
           rm -rf android
           flutter create . --org com.iglesiapanbendito --project-name pan_bendito_app --platforms=android
           cp pubspec.backup.yaml pubspec.yaml
           
-          # Inyectar permisos de internet y consultas de YouTube en AndroidManifest
+          # Inyectar permisos de internet y queries en AndroidManifest
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <queries>\n        <package android:name="com.google.android.youtube" />\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="vnd.youtube" />\n        </intent>\n    </queries>' "$MANIFEST"
-          
-          # Asegurar minSdkVersion 21 para el reproductor de YouTube
-          GRADLE="android/app/build.gradle"
-          if grep -q "minSdkVersion flutter.minSdkVersion" "$GRADLE"; then
-            sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' "$GRADLE"
-          fi
 
       - name: Instalar dependencias Flutter
         working-directory: ./pan_bendito_app
@@ -85,6 +78,12 @@ jobs:
           rm -rf ios
           flutter create . --org com.iglesiapanbendito --project-name pan_bendito_app --platforms=ios
           cp pubspec.backup.yaml pubspec.yaml
+          
+          # Inyectar esquemas de YouTube en Info.plist
+          PLIST="ios/Runner/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes array" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes:0 string vnd.youtube" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes:1 string youtube" "$PLIST" 2>/dev/null || true
 
       - name: Instalar dependencias Flutter
         working-directory: ./pan_bendito_app
