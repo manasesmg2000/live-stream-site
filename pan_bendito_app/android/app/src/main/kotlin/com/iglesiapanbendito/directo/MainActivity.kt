@@ -42,7 +42,8 @@ class MainActivity: FlutterActivity() {
         // 3. Solicitar permiso de notificaciones en Android 13+ (API 33+) al abrir la app
         requestNotificationPermission()
 
-        // 4. Iniciar servicio en segundo plano para recibir notificaciones aunque la app esté cerrada
+        // 4. Iniciar servicio y programador en segundo plano para notificaciones aunque la app esté cerrada
+        NotificationScheduler.scheduleNext(this)
         try {
             val serviceIntent = Intent(this, LiveNotificationService::class.java)
             startService(serviceIntent)
