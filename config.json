@@ -1,4 +1,5 @@
 {
   "live": false,
-  "videoId": ""
+  "videoId": "",
+  "lastVideoId": ""
 }
