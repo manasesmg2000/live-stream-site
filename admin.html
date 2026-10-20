@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin — Gestionar Directo</title>
+  <title>Admin — Iglesia Pan Bendito</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      background: #111;
+      background: #101520;
       color: #f0f0f0;
       font-family: 'Segoe UI', Arial, sans-serif;
       min-height: 100vh;
@@ -16,50 +16,101 @@
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
-      padding: 40px 16px;
+      padding: 30px 16px 60px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 24px;
     }
 
     h1 {
       font-size: 1.8rem;
       font-weight: 800;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       color: #fff;
     }
-    h1 span { color: #ff0000; }
+    h1 span { color: #e74c3c; }
 
     .subtitle {
-      font-size: 0.9rem;
-      opacity: 0.5;
-      margin-bottom: 36px;
-      text-align: center;
+      font-size: 0.88rem;
+      color: #7090c0;
+    }
+
+    /* ── TABS DE NAVEGACIÓN ── */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      background: #182234;
+      padding: 6px;
+      border-radius: 12px;
+      border: 1px solid #263654;
+      margin-bottom: 24px;
+      max-width: 600px;
+      width: 100%;
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #8fa5c7;
+      padding: 10px 14px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .tab-btn.active {
+      background: #24355a;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    .tab-content {
+      display: none;
+      width: 100%;
+      max-width: 600px;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .tab-content.active {
+      display: flex;
     }
 
     .card {
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
+      background: #182234;
+      border: 1px solid #263654;
       border-radius: 14px;
-      padding: 28px 30px;
-      width: 100%;
-      max-width: 520px;
+      padding: 24px;
       display: flex;
       flex-direction: column;
-      gap: 18px;
-      margin-bottom: 24px;
+      gap: 16px;
     }
 
     .card h2 {
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 700;
-      color: #aaa;
+      color: #a0b9dc;
       text-transform: uppercase;
       letter-spacing: 1px;
-      border-bottom: 1px solid #2a2a2a;
-      padding-bottom: 10px;
+      border-bottom: 1px solid #263654;
+      padding-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
     label {
-      font-size: 0.85rem;
-      color: #bbb;
+      font-size: 0.82rem;
+      color: #a0b9dc;
       margin-bottom: 4px;
       display: block;
     }
@@ -67,167 +118,329 @@
     input[type="text"],
     input[type="password"] {
       width: 100%;
-      background: #0f0f0f;
-      border: 1px solid #333;
+      background: #0d1422;
+      border: 1px solid #2e4168;
       border-radius: 8px;
       color: #fff;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       padding: 11px 14px;
       outline: none;
       transition: border 0.2s;
     }
-    input:focus { border-color: #ff0000; }
+    input:focus { border-color: #e74c3c; }
 
     .help {
-      font-size: 0.78rem;
-      color: #555;
-      margin-top: -10px;
+      font-size: 0.76rem;
+      color: #7090c0;
+      margin-top: 4px;
     }
-    .help a { color: #ff6666; }
+    .help a { color: #ff8888; }
 
     .btn {
       border: none;
       border-radius: 8px;
-      padding: 13px 22px;
-      font-size: 1rem;
+      padding: 12px 20px;
+      font-size: 0.95rem;
       font-weight: 700;
       cursor: pointer;
       transition: transform 0.1s, opacity 0.2s;
       width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
     .btn:active { transform: scale(0.98); }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .btn-live  { background: #ff0000; color: #fff; }
-    .btn-live:hover:not(:disabled)  { background: #cc0000; }
+    .btn-live  { background: #e74c3c; color: #fff; }
+    .btn-live:hover:not(:disabled)  { background: #c0392b; }
 
-    .btn-stop  { background: #333; color: #fff; border: 1px solid #555; }
-    .btn-stop:hover:not(:disabled)  { background: #444; }
+    .btn-stop  { background: #24355a; color: #fff; border: 1px solid #3a5288; }
+    .btn-stop:hover:not(:disabled)  { background: #2f4575; }
 
-    .btn-save-token { background: #1e3a5f; color: #7eb8ff; border: 1px solid #2a5a9f; }
-    .btn-save-token:hover { background: #2a4f7a; }
+    .btn-action { background: #1e3a5f; color: #90caf9; border: 1px solid #2e598e; }
+    .btn-action:hover { background: #284c7a; }
+
+    .btn-success { background: #1b4d3e; color: #81c784; border: 1px solid #2e6b4e; }
+    .btn-success:hover { background: #256653; }
 
     .status-box {
-      border-radius: 10px;
-      padding: 14px 18px;
-      font-size: 0.9rem;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.85rem;
       font-weight: 600;
       text-align: center;
       display: none;
     }
     .status-box.ok    { background: #0d2e1a; color: #4caf50; border: 1px solid #2e7d32; }
     .status-box.error { background: #2e0d0d; color: #f44336; border: 1px solid #b71c1c; }
-    .status-box.info  { background: #1a1f2e; color: #90caf9; border: 1px solid #1565c0; }
+    .status-box.info  { background: #14223b; color: #90caf9; border: 1px solid #1e3a5f; }
     .status-box.visible { display: block; }
 
     .current-state {
-      background: #0f0f0f;
-      border: 1px solid #2a2a2a;
+      background: #0d1422;
+      border: 1px solid #263654;
       border-radius: 10px;
       padding: 14px 18px;
       font-size: 0.85rem;
-      color: #888;
+      color: #8fa5c7;
       text-align: center;
     }
     .current-state b { color: #fff; }
-    .dot-live { color: #ff0000; }
+    .dot-live { color: #e74c3c; }
     .dot-off  { color: #666; }
 
-    .separator {
-      border: none;
-      border-top: 1px solid #2a2a2a;
-      margin: 0;
+    /* ── USUARIOS ACTIVOS & CONTADOR ── */
+    .active-badge-large {
+      background: linear-gradient(135deg, #1b4d3e, #0e2a22);
+      border: 1.5px solid #2e6b4e;
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .active-badge-large .number {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #81c784;
+    }
+    .active-badge-large .label {
+      font-size: 0.85rem;
+      color: #c8d4e8;
     }
 
-    #loading {
-      font-size: 0.8rem;
-      color: #555;
-      text-align: center;
+    table.user-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    table.user-table th {
+      background: #0d1422;
+      color: #7090c0;
+      text-align: left;
+      padding: 10px 12px;
+      font-weight: 600;
+      border-bottom: 1px solid #263654;
+    }
+    table.user-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #1f2d47;
+      color: #e8eef8;
+    }
+    table.user-table tr:last-child td { border-bottom: none; }
+
+    .tag-online {
+      display: inline-block;
+      background: #1b4d3e;
+      color: #81c784;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .tag-offline {
+      display: inline-block;
+      background: #252e3d;
+      color: #8fa5c7;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 10px;
     }
   </style>
 </head>
 <body>
 
-  <h1>🎥 Admin <span>Directo</span></h1>
-  <p class="subtitle">Panel local para gestionar el directo en GitHub Pages</p>
+  <header>
+    <h1>PAN BENDITO <span>Admin</span></h1>
+    <p class="subtitle">Panel de Gestión de Emisión, Asistencias y Notificaciones</p>
+  </header>
 
-  <!-- ── Configuración de GitHub ── -->
-  <div class="card">
-    <h2>⚙️ Configuración de GitHub</h2>
+  <!-- Pestañas -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('directo')">📡 Directo</button>
+    <button class="tab-btn" onclick="switchTab('usuarios')">👥 Usuarios activos (<span id="tab-count">0</span>)</button>
+    <button class="tab-btn" onclick="switchTab('configuracion')">⚙️ Ajustes</button>
+  </div>
 
-    <div>
-      <label>Usuario de GitHub</label>
-      <input type="text" id="gh-user" placeholder="tu-usuario" />
+  <!-- ══════════ PESTAÑA 1: GESTIÓN DE DIRECTO ══════════ -->
+  <div id="tab-directo" class="tab-content active">
+
+    <!-- Estado actual -->
+    <div class="card">
+      <h2>📡 Estado actual</h2>
+      <div class="current-state" id="current-state">
+        <span>Cargando estado...</span>
+      </div>
     </div>
 
-    <div>
-      <label>Nombre del repositorio</label>
-      <input type="text" id="gh-repo" placeholder="nombre-del-repo" />
+    <!-- Activar directo -->
+    <div class="card">
+      <h2>🔴 Activar directo</h2>
+      <div>
+        <label>Enlace o Código de YouTube (Culto en vivo)</label>
+        <input type="text" id="yt-url" placeholder="Pega el enlace del directo de YouTube o su ID" />
+        <p class="help">Ejemplo: https://www.youtube.com/watch?v=1Qm3vRe8iJg o 1Qm3vRe8iJg</p>
+      </div>
+
+      <div>
+        <label>Vídeo del Culto Anterior (para cuando no haya directo)</label>
+        <input type="text" id="last-yt-url" placeholder="ID o enlace del culto anterior (opcional)" />
+        <p class="help">Los hermanos verán un botón <b>"Ver culto anterior"</b> con este vídeo.</p>
+      </div>
+
+      <button class="btn btn-live" onclick="setLive()">▶ Activar directo y notificar a los usuarios</button>
+      <div id="live-status" class="status-box"></div>
     </div>
 
-    <div>
-      <label>Rama (normalmente <b>main</b>)</label>
-      <input type="text" id="gh-branch" value="main" placeholder="main" />
-    </div>
-
-    <div>
-      <label>Token personal de GitHub</label>
-      <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
-      <p class="help">
-        Crea uno en
-        <a href="https://github.com/settings/tokens/new" target="_blank">
-          github.com/settings/tokens
-        </a>
-        con permiso <b>repo → Contents (write)</b>.
-        Se guarda solo en tu navegador (localStorage).
+    <!-- Desactivar directo -->
+    <div class="card">
+      <h2>⏹ Terminar directo</h2>
+      <p style="font-size:0.82rem;color:#8fa5c7;">
+        Al terminar el directo, el vídeo actual se guardará automáticamente como <b>Culto anterior</b> en la app y en la web.
       </p>
+      <button class="btn btn-stop" onclick="setOffline()">⏹ Terminar directo</button>
+      <div id="stop-status" class="status-box"></div>
     </div>
 
-    <button class="btn btn-save-token" onclick="saveSettings()">💾 Guardar configuración</button>
-
-    <div id="settings-status" class="status-box"></div>
   </div>
 
-  <!-- ── Estado actual ── -->
-  <div class="card">
-    <h2>📡 Estado actual</h2>
-    <div class="current-state" id="current-state">
-      <span id="loading">Cargando...</span>
-    </div>
-  </div>
+  <!-- ══════════ PESTAÑA 2: USUARIOS ACTIVOS Y ASISTENCIA ══════════ -->
+  <div id="tab-usuarios" class="tab-content">
 
-  <!-- ── Activar directo ── -->
-  <div class="card">
-    <h2>🔴 Activar directo</h2>
-
-    <div>
-      <label>Enlace o Código de inserción (&lt;iframe...&gt;) de YouTube</label>
-      <input
-        type="text"
-        id="yt-url"
-        placeholder="Pega el enlace o el código <iframe> que te da YouTube"
-      />
-      <p class="help">Puedes pegar directamente el código &lt;iframe...&gt; de YouTube, el enlace del vídeo o su ID.</p>
+    <div class="active-badge-large">
+      <div>
+        <div class="label">USUARIOS ACTIVOS EN ESTE MOMENTO</div>
+        <div style="font-size: 0.8rem; color: #8fa5c7; margin-top: 4px;">
+          Hermanos con la aplicación abierta ahora mismo
+        </div>
+      </div>
+      <div class="number" id="active-count-display">0</div>
     </div>
 
-    <button class="btn btn-live" onclick="setLive()">▶ Activar directo</button>
-    <div id="live-status" class="status-box"></div>
+    <!-- Tabla de usuarios activos -->
+    <div class="card">
+      <h2>
+        <span>🟢 Hermanos conectados ahora</span>
+        <button class="btn-action" style="padding:4px 10px; font-size:0.75rem; width:auto;" onclick="refreshPresence()">🔄 Refrescar</button>
+      </h2>
+
+      <div style="max-height: 220px; overflow-y: auto;">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>Nombre y Apellidos</th>
+              <th>Última actividad</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="active-users-tbody">
+            <tr>
+              <td colspan="3" style="text-align:center; color:#7090c0; padding:20px;">
+                Conectando con la red...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Registro de entradas / Asistencias -->
+    <div class="card">
+      <h2>
+        <span>📋 Historial de Entradas a la App</span>
+        <span id="log-count" style="font-size:0.8rem; font-weight:normal; color:#7090c0;">0 registros</span>
+      </h2>
+
+      <div style="max-height: 240px; overflow-y: auto;">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>Fecha y Hora</th>
+              <th>Nombre y Apellidos</th>
+            </tr>
+          </thead>
+          <tbody id="access-log-tbody">
+            <tr>
+              <td colspan="2" style="text-align:center; color:#7090c0; padding:20px;">
+                No hay registros aún.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="row-actions">
+        <button class="btn btn-success" onclick="saveLogToGitHub()">💾 Guardar en GitHub (asistencias.txt)</button>
+        <button class="btn btn-action" onclick="downloadLogTxt()">📥 Descargar (.txt)</button>
+      </div>
+      <div id="log-status" class="status-box"></div>
+    </div>
+
   </div>
 
-  <!-- ── Desactivar directo ── -->
-  <div class="card">
-    <h2>⛔ Terminar directo</h2>
-    <p style="font-size:0.85rem;color:#888;">
-      Pulsa este botón cuando el directo termine. La web mostrará el mensaje
-      "No hay directo disponible".
-    </p>
-    <button class="btn btn-stop" onclick="setOffline()">⏹ Terminar directo</button>
-    <div id="stop-status" class="status-box"></div>
+  <!-- ══════════ PESTAÑA 3: CONFIGURACIÓN GITHUB ══════════ -->
+  <div id="tab-configuracion" class="tab-content">
+    <div class="card">
+      <h2>⚙️ Configuración de GitHub</h2>
+
+      <div>
+        <label>Usuario de GitHub</label>
+        <input type="text" id="gh-user" placeholder="tu-usuario" />
+      </div>
+
+      <div>
+        <label>Nombre del repositorio</label>
+        <input type="text" id="gh-repo" placeholder="nombre-del-repo" />
+      </div>
+
+      <div>
+        <label>Rama (normalmente <b>main</b>)</label>
+        <input type="text" id="gh-branch" value="main" />
+      </div>
+
+      <div>
+        <label>Token personal de GitHub</label>
+        <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
+        <p class="help">
+          Crea uno en
+          <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens</a>
+          con permiso <b>repo → Contents (write)</b>.
+        </p>
+      </div>
+
+      <button class="btn btn-action" onclick="saveSettings()">💾 Guardar configuración</button>
+      <div id="settings-status" class="status-box"></div>
+    </div>
   </div>
 
   <script>
     // ────────────────────────────────────────────
-    // Persistencia en localStorage
+    // Pestañas
+    // ────────────────────────────────────────────
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        b.classList.toggle('active', 
+          (tabId === 'directo' && i === 0) ||
+          (tabId === 'usuarios' && i === 1) ||
+          (tabId === 'configuracion' && i === 2)
+        );
+      });
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      const activeContent = document.getElementById('tab-' + tabId);
+      if (activeContent) activeContent.classList.add('active');
+    }
+
+    // ────────────────────────────────────────────
+    // Configuración Local
     // ────────────────────────────────────────────
     const KEYS = {
       user:   'gh_user',
@@ -271,13 +484,13 @@
     }
 
     // ────────────────────────────────────────────
-    // GitHub API helpers
+    // GitHub API
     // ────────────────────────────────────────────
     const CONFIG_PATH = 'config.json';
+    let currentConfigCache = { live: false, videoId: '', lastVideoId: '' };
 
-    async function getFileInfo(s) {
-      // _t timestamp y cache: no-store para evitar que el navegador guarde el SHA en caché
-      const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${CONFIG_PATH}?ref=${encodeURIComponent(s.branch)}&_t=${Date.now()}`;
+    async function getFileInfo(s, path = CONFIG_PATH) {
+      const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${path}?ref=${encodeURIComponent(s.branch)}&_t=${Date.now()}`;
       const res = await fetch(url, {
         headers: {
           'Authorization': `token ${s.token}`,
@@ -295,16 +508,13 @@
         throw new Error('Configura primero el usuario, repositorio y token de GitHub.');
       }
 
-      // Obtener el SHA actual y fresco del archivo
-      const fileInfo = await getFileInfo(s);
+      const fileInfo = await getFileInfo(s, CONFIG_PATH);
       const sha = fileInfo.sha;
 
-      // Codificar el nuevo contenido en base64
       const content = btoa(unescape(encodeURIComponent(
         JSON.stringify(newConfig, null, 2) + '\n'
       )));
 
-      // Actualizar el archivo en GitHub
       const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${CONFIG_PATH}`;
       const res = await fetch(url, {
         method: 'PUT',
@@ -325,20 +535,16 @@
 
       if (!res.ok) {
         const errorText = await res.text();
-        // Si hay conflicto 409 (SHA desincronizado), reintentar automáticamente con el SHA más reciente
         if (res.status === 409 && retryCount < 2) {
-          console.warn('Conflicto 409 detectado, reintentando con SHA fresco...');
           await new Promise(r => setTimeout(r, 600));
           return await updateConfig(newConfig, retryCount + 1);
         }
         throw new Error(`Error al actualizar: ${res.status} ${errorText}`);
       }
+      currentConfigCache = newConfig;
       return await res.json();
     }
 
-    // ────────────────────────────────────────────
-    // Extraer ID de YouTube de una URL
-    // ────────────────────────────────────────────
     function extractVideoId(input) {
       input = input.trim();
       if (/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
@@ -356,30 +562,38 @@
     }
 
     // ────────────────────────────────────────────
-    // Mostrar estado actual
+    // Estado Actual
     // ────────────────────────────────────────────
     async function loadCurrentState() {
       const s = getSettings();
       const el = document.getElementById('current-state');
 
       if (!s.user || !s.repo || !s.token) {
-        el.innerHTML = '<span style="color:#666">Configura GitHub para ver el estado.</span>';
+        el.innerHTML = '<span style="color:#7090c0">Configura GitHub en la pestaña Ajustes para ver el estado.</span>';
         return;
       }
 
       try {
-        const fileInfo = await getFileInfo(s);
+        const fileInfo = await getFileInfo(s, CONFIG_PATH);
         const decoded = decodeURIComponent(escape(atob(fileInfo.content.replace(/\n/g,''))));
         const cfg = JSON.parse(decoded);
+        currentConfigCache = cfg;
+
+        if (cfg.lastVideoId) {
+          document.getElementById('last-yt-url').value = cfg.lastVideoId;
+        }
 
         if (cfg.live && cfg.videoId) {
           const vid = extractVideoId(cfg.videoId);
           el.innerHTML = `
             <span class="dot-live">●</span>
             <b> EN DIRECTO</b><br/>
-            <span style="font-size:0.8rem;color:#666">ID: ${vid}</span>`;
+            <span style="font-size:0.8rem;color:#7090c0">Vídeo activo: ${vid}</span>
+            ${cfg.lastVideoId ? `<br/><span style="font-size:0.75rem;color:#8fa5c7">Culto anterior: ${cfg.lastVideoId}</span>` : ''}`;
         } else {
-          el.innerHTML = `<span class="dot-off">●</span> <b>Sin directo</b> — mostrando pantalla de espera`;
+          el.innerHTML = `
+            <span class="dot-off">●</span> <b>Sin directo</b> — mostrando pantalla de espera
+            ${cfg.lastVideoId ? `<br/><span style="font-size:0.75rem;color:#8fa5c7">Culto anterior disponible: <b>${cfg.lastVideoId}</b></span>` : ''}`;
         }
       } catch (e) {
         el.innerHTML = `<span style="color:#f44336">Error al leer estado: ${e.message}</span>`;
@@ -387,14 +601,16 @@
     }
 
     // ────────────────────────────────────────────
-    // Acciones y notificación en tiempo real
+    // Señales y Notificaciones Push (ntfy)
     // ────────────────────────────────────────────
-    const REALTIME_TOPIC = 'https://ntfy.sh/iglesia-pan-bendito-live-channel-v1';
+    const LIVE_TOPIC     = 'https://ntfy.sh/iglesia-pan-bendito-live-channel-v1';
+    const PRESENCE_TOPIC = 'https://ntfy.sh/iglesia-pan-bendito-presence-v1';
 
-    function sendRealtimeSignal(signal) {
+    function sendRealtimeSignal(signal, notificationHeaders = {}) {
       try {
-        fetch(REALTIME_TOPIC, {
+        fetch(LIVE_TOPIC, {
           method: 'POST',
+          headers: notificationHeaders,
           body: signal,
         }).catch(() => {});
       } catch (e) {}
@@ -408,17 +624,25 @@
       }
 
       const videoId = extractVideoId(ytInput);
+      const lastInput = document.getElementById('last-yt-url').value.trim();
+      const lastVideoId = lastInput ? extractVideoId(lastInput) : (currentConfigCache.lastVideoId || videoId);
 
-      // 1. Enviar señal instantánea (se refleja en la web en menos de 0.1s)
-      sendRealtimeSignal(`LIVE:${videoId}`);
+      // 1. Notificación Push a los móviles y web
+      sendRealtimeSignal(`LIVE:${videoId}|${lastVideoId}`, {
+        'Title': '🔴 ¡Estamos EN DIRECTO!',
+        'Priority': 'high',
+        'Tags': 'red_circle,tv',
+        'Click': 'https://manasesmg2000.github.io/live-stream-site/',
+      });
+
       showStatus('live-status', 'ok',
-        `⚡ ¡Enviado a la web en tiempo real!<br/>Guardando copia en GitHub...<br/>ID del vídeo: <b>${videoId}</b>`);
+        `⚡ ¡Directo emitido y notificación enviada!<br/>Guardando copia en GitHub...<br/>ID del vídeo: <b>${videoId}</b>`);
 
       // 2. Guardar permanentemente en GitHub
       try {
-        await updateConfig({ live: true, videoId });
+        await updateConfig({ live: true, videoId, lastVideoId });
         showStatus('live-status', 'ok',
-          `✅ ¡Directo activo y guardado en GitHub!<br/>ID del vídeo: <b>${videoId}</b>`);
+          `✅ ¡Directo activo, notificado y guardado en GitHub!<br/>ID: <b>${videoId}</b> | Culto anterior: <b>${lastVideoId}</b>`);
         loadCurrentState();
       } catch (e) {
         showStatus('live-status', 'error', `⚠️ Emitido en vivo, pero hubo error al guardar en GitHub: ${e.message}`);
@@ -426,25 +650,231 @@
     }
 
     async function setOffline() {
-      // 1. Enviar señal instantánea de fin de directo
-      sendRealtimeSignal('OFFLINE');
-      showStatus('stop-status', 'ok',
-        '⚡ ¡Finalizado en la web en tiempo real!<br/>Guardando copia en GitHub...');
+      const lastVideoId = currentConfigCache.videoId || currentConfigCache.lastVideoId || '';
+      
+      // Señal instantánea
+      sendRealtimeSignal(`OFFLINE|${lastVideoId}`);
+      showStatus('stop-status', 'ok', '⚡ Finalizado en la app y web en tiempo real.<br/>Guardando copia en GitHub...');
 
-      // 2. Guardar permanentemente en GitHub
       try {
-        await updateConfig({ live: false, videoId: '' });
+        await updateConfig({ live: false, videoId: '', lastVideoId });
         showStatus('stop-status', 'ok',
-          '✅ Directo terminado y guardado en GitHub. La web muestra "No hay directo disponible".');
+          `✅ Directo finalizado. El culto anterior guardado es <b>${lastVideoId}</b>.`);
         loadCurrentState();
       } catch (e) {
-        showStatus('stop-status', 'error', `⚠️ Finalizado en la web, pero hubo error al guardar en GitHub: ${e.message}`);
+        showStatus('stop-status', 'error', `⚠️ Error al guardar en GitHub: ${e.message}`);
       }
     }
 
     // ────────────────────────────────────────────
-    // UI helpers
+    // Monitoreo de Presencia y Usuarios Activos
     // ────────────────────────────────────────────
+    const activeUsersMap = new Map(); // name -> lastSeenTimestamp (epoch ms)
+    const accessLogsList = [];        // { name, date }
+
+    function handlePresenceMessage(raw) {
+      if (!raw || typeof raw !== 'string') return;
+      const text = raw.trim();
+
+      let name = '';
+      let dateStr = '';
+
+      if (text.startsWith('LOGIN:') || text.startsWith('PING:')) {
+        const payload = text.substring(6);
+        const parts = payload.split('|');
+        name = parts[0]?.trim();
+        dateStr = parts[1]?.trim() || new Date().toLocaleString();
+      } else {
+        return;
+      }
+
+      if (!name) return;
+
+      const now = Date.now();
+      activeUsersMap.set(name, now);
+
+      if (text.startsWith('LOGIN:')) {
+        accessLogsList.unshift({ name, date: dateStr });
+        if (accessLogsList.length > 200) accessLogsList.pop();
+        renderAccessLogs();
+      }
+
+      renderActiveUsers();
+    }
+
+    function renderActiveUsers() {
+      const tbody = document.getElementById('active-users-tbody');
+      const now = Date.now();
+      const cutoffActive = 90 * 1000; // 90 segundos para considerar activo
+
+      let activeCount = 0;
+      let rowsHtml = '';
+
+      const sortedUsers = Array.from(activeUsersMap.entries()).sort((a, b) => b[1] - a[1]);
+
+      for (const [name, lastSeen] of sortedUsers) {
+        const diffSec = Math.round((now - lastSeen) / 1000);
+        const isOnline = diffSec <= 90;
+        if (isOnline) activeCount++;
+
+        let timeDesc = diffSec < 60 ? `Hace ${diffSec} seg` : `Hace ${Math.round(diffSec / 60)} min`;
+
+        rowsHtml += `
+          <tr>
+            <td><b>${escapeHtml(name)}</b></td>
+            <td style="color:#8fa5c7;">${timeDesc}</td>
+            <td>
+              <span class="${isOnline ? 'tag-online' : 'tag-offline'}">
+                ${isOnline ? '🟢 Conectado' : '⚪ Inactivo'}
+              </span>
+            </td>
+          </tr>
+        `;
+      }
+
+      if (rowsHtml === '') {
+        rowsHtml = `<tr><td colspan="3" style="text-align:center; color:#7090c0; padding:18px;">No hay usuarios conectados ahora</td></tr>`;
+      }
+
+      tbody.innerHTML = rowsHtml;
+      document.getElementById('active-count-display').textContent = activeCount;
+      document.getElementById('tab-count').textContent = activeCount;
+    }
+
+    function renderAccessLogs() {
+      const tbody = document.getElementById('access-log-tbody');
+      if (accessLogsList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#7090c0; padding:18px;">No hay registros aún</td></tr>`;
+        document.getElementById('log-count').textContent = '0 registros';
+        return;
+      }
+
+      document.getElementById('log-count').textContent = `${accessLogsList.length} registro(s)`;
+      tbody.innerHTML = accessLogsList.map(entry => `
+        <tr>
+          <td style="color:#8fa5c7; white-space:nowrap;">${escapeHtml(entry.date)}</td>
+          <td><b>${escapeHtml(entry.name)}</b></td>
+        </tr>
+      `).join('');
+    }
+
+    function initPresenceStream() {
+      if (!window.EventSource) return;
+      try {
+        const sse = new EventSource(`${PRESENCE_TOPIC}/sse`);
+        sse.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.event === 'message' && data.message) {
+              handlePresenceMessage(data.message);
+            }
+          } catch (_) {}
+        };
+      } catch (e) {
+        console.warn('Presence SSE fallback:', e);
+      }
+    }
+
+    async function refreshPresence() {
+      try {
+        const res = await fetch(`${PRESENCE_TOPIC}/json?poll=1`, { cache: 'no-store' });
+        if (res.ok) {
+          const text = await res.text();
+          const lines = text.trim().split('\n').filter(Boolean);
+          for (const line of lines) {
+            try {
+              const item = JSON.parse(line);
+              if (item.event === 'message' && item.message) {
+                handlePresenceMessage(item.message);
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+      renderActiveUsers();
+    }
+
+    // ────────────────────────────────────────────
+    // Guardar en GitHub y Descargar .txt
+    // ────────────────────────────────────────────
+    function generateLogText() {
+      let txt = `=========================================\n`;
+      txt += `REGISTRO DE ASISTENCIAS - IGLESIA PAN BENDITO\n`;
+      txt += `Generado el: ${new Date().toLocaleString()}\n`;
+      txt += `Total de registros: ${accessLogsList.length}\n`;
+      txt += `=========================================\n\n`;
+
+      if (accessLogsList.length === 0) {
+        txt += `(Sin registros de accesos registrados aún)\n`;
+      } else {
+        accessLogsList.forEach((item, idx) => {
+          txt += `[${idx + 1}] ${item.date} | ${item.name}\n`;
+        });
+      }
+      return txt;
+    }
+
+    async function saveLogToGitHub() {
+      const s = getSettings();
+      if (!s.user || !s.repo || !s.token) {
+        showStatus('log-status', 'error', '⚠️ Configura GitHub en Ajustes para poder guardar.');
+        return;
+      }
+
+      showStatus('log-status', 'info', 'Guardando asistencias.txt en GitHub...');
+      const logContent = generateLogText();
+      const contentB64 = btoa(unescape(encodeURIComponent(logContent)));
+
+      let sha = null;
+      try {
+        const existing = await getFileInfo(s, 'asistencias.txt');
+        if (existing && existing.sha) sha = existing.sha;
+      } catch (_) {}
+
+      try {
+        const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/asistencias.txt`;
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `token ${s.token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: `📋 Actualizar asistencias.txt (${new Date().toLocaleDateString()})`,
+            content: contentB64,
+            sha: sha || undefined,
+            branch: s.branch,
+          }),
+        });
+
+        if (res.ok) {
+          showStatus('log-status', 'ok', '✅ ¡Archivo asistencias.txt guardado con éxito en el repositorio de GitHub!');
+        } else {
+          showStatus('log-status', 'error', `⚠️ Error al guardar: ${res.statusText}`);
+        }
+      } catch (e) {
+        showStatus('log-status', 'error', `⚠️ Error: ${e.message}`);
+      }
+    }
+
+    function downloadLogTxt() {
+      const text = generateLogText();
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `asistencias_pan_bendito_${new Date().toISOString().slice(0,10)}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
     function showStatus(id, type, html) {
       const el = document.getElementById(id);
       el.className = `status-box ${type} visible`;
@@ -452,10 +882,13 @@
     }
 
     // ────────────────────────────────────────────
-    // Init
+    // Arranque
     // ────────────────────────────────────────────
     loadSettings();
     loadCurrentState();
+    initPresenceStream();
+    refreshPresence();
+    setInterval(renderActiveUsers, 10000); // reevaluar cada 10s el estado online/offline
   </script>
 </body>
 </html>
