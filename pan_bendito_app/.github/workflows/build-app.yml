@@ -1,0 +1,147 @@
+name: Compilar App Android e iOS
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'pan_bendito_app/**'
+      - '.github/workflows/build-app.yml'
+      - 'live-stream-site/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Compilar APK para Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Configurar certificado release permanente
+        working-directory: ./pan_bendito_app
+        run: |
+          mkdir -p android/app
+          if [ -f "android/panbendito.keystore.b64" ]; then
+            echo "Restaurando keystore permanente desde base64..."
+            base64 -d android/panbendito.keystore.b64 > panbendito.jks
+            cp panbendito.jks android/app/panbendito.jks
+          else
+            echo "Generando keystore permanente para Pan Bendito..."
+            keytool -genkeypair -v \
+              -keystore panbendito.jks \
+              -alias panbendito \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "PanBendito2026!" \
+              -keypass "PanBendito2026!" \
+              -dname "CN=PAN BENDITO, OU=Iglesia Pan Bendito, O=Iglesia Evangelica Pan Bendito, L=Madrid, ST=Madrid, C=ES"
+            cp panbendito.jks android/app/panbendito.jks
+            base64 -w 0 panbendito.jks > android/panbendito.keystore.b64
+            git config user.name "github-actions[bot]"
+            git config user.email "actions@github.com"
+            git add android/panbendito.keystore.b64
+            git commit -m "chore: persist permanent release keystore [skip ci]" || true
+            git push origin main || true
+          fi
+
+      - name: Instalar dependencias Flutter
+        working-directory: ./pan_bendito_app
+        run: flutter pub get
+
+      - name: Compilar APK Release
+        working-directory: ./pan_bendito_app
+        run: flutter build apk --release
+
+      - name: Renombrar y firmar con certificado Release oficial (v1, v2, v3)
+        working-directory: ./pan_bendito_app
+        run: |
+          mkdir -p release-output
+          RAW_APK="build/app/outputs/flutter-apk/app-release.apk"
+          
+          # Localizar apksigner oficial de Android SDK
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort | tail -n 1)
+          echo "Usando apksigner en: $APKSIGNER"
+          
+          # Firmar APK con el certificado permanente de Pan Bendito
+          $APKSIGNER sign --ks panbendito.jks \
+            --ks-pass pass:PanBendito2026! \
+            --key-pass pass:PanBendito2026! \
+            --ks-key-alias panbendito \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out release-output/PanBendito.apk \
+            "$RAW_APK"
+          
+          # Verificar la firma
+          $APKSIGNER verify --verbose release-output/PanBendito.apk
+          
+          # Copia con nombre alternativo
+          cp release-output/PanBendito.apk release-output/IglesiaPanBendito.apk
+
+      - name: Subir APK como artefacto descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: IglesiaPanBendito-Android-APK
+          path: pan_bendito_app/release-output/PanBendito.apk
+          if-no-files-found: error
+
+  build-ios:
+    name: Compilar versión para iOS
+    runs-on: macos-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Generar estructura nativa de iOS
+        working-directory: ./pan_bendito_app
+        run: |
+          cp pubspec.yaml pubspec.backup.yaml
+          rm -rf ios
+          flutter create . --org com.iglesiapanbendito --project-name pan_bendito_app --platforms=ios
+          cp pubspec.backup.yaml pubspec.yaml
+          
+          # Inyectar esquemas de YouTube y nombre PAN BENDITO en Info.plist
+          PLIST="ios/Runner/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string 'PAN BENDITO'" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'PAN BENDITO'" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes array" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes:0 string vnd.youtube" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes:1 string youtube" "$PLIST" 2>/dev/null || true
+
+      - name: Instalar dependencias Flutter
+        working-directory: ./pan_bendito_app
+        run: flutter pub get
+
+      - name: Compilar versión iOS (sin firma para pruebas)
+        working-directory: ./pan_bendito_app
+        run: flutter build ios --release --no-codesign
+
+      - name: Subir artefacto iOS
+        uses: actions/upload-artifact@v4
+        with:
+          name: IglesiaPanBendito-iOS-Build
+          path: pan_bendito_app/build/ios/iphoneos
