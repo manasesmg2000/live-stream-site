@@ -652,9 +652,15 @@
     async function setOffline() {
       const lastVideoId = currentConfigCache.videoId || currentConfigCache.lastVideoId || '';
       
-      // Señal instantánea
-      sendRealtimeSignal(`OFFLINE|${lastVideoId}`);
-      showStatus('stop-status', 'ok', '⚡ Finalizado en la app y web en tiempo real.<br/>Guardando copia en GitHub...');
+      // Señal instantánea y notificación de fin de culto
+      sendRealtimeSignal(`OFFLINE|${lastVideoId}`, {
+        'Title': '⏹ Culto finalizado',
+        'Priority': 'default',
+        'Tags': 'stop_button,church',
+        'Message': 'El directo ha terminado. ¡Gracias por acompañarnos! Ya puedes ver el culto anterior.',
+        'Click': 'https://manasesmg2000.github.io/live-stream-site/',
+      });
+      showStatus('stop-status', 'ok', '⚡ Finalizado en la app y web en tiempo real.<br/>Notificación enviada y guardando copia en GitHub...');
 
       try {
         await updateConfig({ live: false, videoId: '', lastVideoId });
