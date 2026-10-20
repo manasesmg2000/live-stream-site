@@ -6,10 +6,12 @@ import android.content.Intent
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+        val action = intent.action ?: return
+        if (action == Intent.ACTION_BOOT_COMPLETED ||
+            action == Intent.ACTION_MY_PACKAGE_REPLACED ||
+            action == "android.intent.action.QUICKBOOT_POWERON") {
             try {
-                val serviceIntent = Intent(context, LiveNotificationService::class.java)
-                context.startService(serviceIntent)
+                NotificationScheduler.scheduleNext(context)
             } catch (_: Exception) {}
         }
     }
