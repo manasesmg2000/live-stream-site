@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Build
@@ -22,6 +23,8 @@ class MainActivity: FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // 1. Activar MulticastLock para evitar que Android bloquee el tráfico de red local
         try {
             val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
             if (wifi != null) {
@@ -33,7 +36,27 @@ class MainActivity: FlutterActivity() {
             e.printStackTrace()
         }
 
+        // 2. Crear canal de notificaciones nativo
         createNotificationChannel()
+
+        // 3. Solicitar permiso de notificaciones en Android 13+ (API 33+) al abrir la app
+        requestNotificationPermission()
+
+        // 4. Iniciar servicio en segundo plano para recibir notificaciones aunque la app esté cerrada
+        try {
+            val serviceIntent = Intent(this, LiveNotificationService::class.java)
+            startService(serviceIntent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -49,6 +72,10 @@ class MainActivity: FlutterActivity() {
                     val name = call.argument<String>("name") ?: ""
                     val prefs = getSharedPreferences("pan_bendito_prefs", Context.MODE_PRIVATE)
                     prefs.edit().putString("user_name", name).apply()
+                    result.success(true)
+                }
+                "requestNotificationPermission" -> {
+                    requestNotificationPermission()
                     result.success(true)
                 }
                 "logAccess" -> {
@@ -110,6 +137,7 @@ class MainActivity: FlutterActivity() {
                 .setSmallIcon(applicationInfo.icon)
                 .setContentTitle(title)
                 .setContentText(message)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(message))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
