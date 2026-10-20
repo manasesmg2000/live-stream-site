@@ -29,7 +29,7 @@ class PanBenditoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Iglesia de Pan Bendito',
+      title: 'PAN BENDITO',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
