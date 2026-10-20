@@ -1,26 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/native_bridge.dart';
 
 class OfflineView extends StatelessWidget {
-  const OfflineView({super.key});
+  final String lastVideoId;
+  final VoidCallback? onWatchPrevious;
+
+  const OfflineView({
+    super.key,
+    this.lastVideoId = '',
+    this.onWatchPrevious,
+  });
 
   Future<void> _openChannel() async {
     final uri = Uri.parse('https://www.youtube.com/@pambenditoTV');
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  Future<void> _openPreviousVideo() async {
+    if (onWatchPrevious != null) {
+      onWatchPrevious!();
+      return;
+    }
+    if (lastVideoId.isNotEmpty) {
+      final success = await NativeBridge.openYouTube(lastVideoId);
+      if (!success) {
+        final uri = Uri.parse('https://www.youtube.com/watch?v=$lastVideoId');
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } else {
+      _openChannel();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Logo circular con resplandor
             Container(
-              width: 140,
-              height: 140,
+              width: 130,
+              height: 130,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
@@ -46,18 +70,18 @@ class OfflineView extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // Línea divisoria suave
             Container(
-              width: 60,
+              width: 50,
               height: 2,
               decoration: BoxDecoration(
                 color: const Color(0xFF7090C0).withOpacity(0.5),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // Título
             const Text(
@@ -65,40 +89,61 @@ class OfflineView extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Color(0xFFC8D4E8),
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
             // Descripción
             const Text(
-              'Vuelve pronto. Cuando empiece la transmisión en vivo, aparecerá aquí automáticamente.',
+              'Cuando empiece la transmisión en vivo, aparecerá aquí automáticamente.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Color(0xFF7090C0),
-                fontSize: 14,
-                height: 1.6,
+                fontSize: 13,
+                height: 1.5,
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
 
-            // Botón canal
-            ElevatedButton.icon(
-              icon: const Icon(Icons.play_circle_fill, color: Colors.red, size: 22),
+            // Botón VER CULTO ANTERIOR (si hay vídeo anterior disponible)
+            if (lastVideoId.isNotEmpty) ...[
+              ElevatedButton.icon(
+                icon: const Icon(Icons.history_rounded, color: Color(0xFFE8EEF8), size: 22),
+                label: const Text(
+                  'Ver culto anterior',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A5F),
+                  foregroundColor: const Color(0xFFE8EEF8),
+                  side: const BorderSide(color: Color(0xFF7090C0), width: 1.2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  elevation: 5,
+                ),
+                onPressed: _openPreviousVideo,
+              ),
+              const SizedBox(height: 14),
+            ],
+
+            // Botón canal de YouTube
+            OutlinedButton.icon(
+              icon: const Icon(Icons.play_circle_fill, color: Colors.red, size: 20),
               label: const Text('Visitar nuestro canal de YouTube'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF223054),
-                foregroundColor: const Color(0xFFE8EEF8),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFC8D4E8),
                 side: BorderSide(
                   color: const Color(0xFFC8D4E8).withOpacity(0.3),
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(24),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                elevation: 4,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
               onPressed: _openChannel,
             ),
