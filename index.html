@@ -555,38 +555,38 @@
       </div>
 
       <div class="modal-body">
-        <!-- Opción 1: Chromecast / Google TV -->
-        <div class="cast-opt-card" onclick="triggerNativeCastFromModal()">
-          <div class="cast-opt-title">
-            <span>📺 Chromecast / Google TV</span>
-          </div>
-          <div class="cast-opt-desc">
-            Abre el selector de Google Cast de tu navegador para conectar con tu Chromecast o Smart TV.
-          </div>
-          <button type="button" class="btn-cast-action">Buscar dispositivos de emisión</button>
-        </div>
-
-        <!-- Opción 2: App de YouTube (Móvil / Firestick / Smart TV) -->
+        <!-- Opción 1: Amazon Fire TV Stick / Móvil -->
         <a id="modal-yt-app-btn" href="" target="_blank" rel="noopener noreferrer" class="cast-opt-card">
           <div class="cast-opt-title">
-            <span>📱 Abrir en la app de YouTube</span>
+            <span>🔥 Amazon Fire TV Stick / Móvil</span>
           </div>
           <div class="cast-opt-desc">
-            En el móvil, la app de YouTube detecta automáticamente todos los Fire TV Stick, Smart TVs (Samsung, LG) y consolas en tu Wi-Fi.
+            Abre el directo en la app de YouTube. El botón de emitir de la app de YouTube detecta tu Firestick al instante en la misma red Wi-Fi para reproducirlo en la televisión.
           </div>
-          <span class="btn-cast-action">Abrir en YouTube móvil</span>
+          <span class="btn-cast-action">▶ Abrir en YouTube (Recomendado para Firestick)</span>
         </a>
 
-        <!-- Opción 3: Vincular con código de TV -->
+        <!-- Opción 2: Smart TV / Vincular con código -->
         <a href="https://www.youtube.com/pair" target="_blank" rel="noopener noreferrer" class="cast-opt-card">
           <div class="cast-opt-title">
-            <span>🔢 Vincular con código de TV</span>
+            <span>🔢 Smart TV / Vincular con código de TV</span>
           </div>
           <div class="cast-opt-desc">
-            Abre YouTube en tu Smart TV o Firestick, entra en Ajustes &gt; "Vincular con código de TV" y escribe aquí el código.
+            En tu TV (Samsung, LG, etc.) o Firestick entra en YouTube &gt; Ajustes &gt; <b>Vincular con código de TV</b> y conéctalo aquí una sola vez.
           </div>
-          <span class="btn-cast-action">Ir a youtube.com/pair</span>
+          <span class="btn-cast-action">Introducir código en youtube.com/pair</span>
         </a>
+
+        <!-- Opción 3: Chromecast / Google TV -->
+        <div class="cast-opt-card" onclick="triggerNativeCastFromModal()">
+          <div class="cast-opt-title">
+            <span>📺 Google Chromecast / Google TV</span>
+          </div>
+          <div class="cast-opt-desc">
+            Buscador nativo de Google Cast (solo para dispositivos Chromecast oficiales de Google en Google Chrome).
+          </div>
+          <button type="button" class="btn-cast-action">Buscar dispositivos Chromecast</button>
+        </div>
       </div>
     </div>
   </div>
@@ -713,28 +713,7 @@
       if (event && event.target && event.target.tagName && event.target.tagName.toLowerCase() === 'google-cast-launcher') {
         return;
       }
-
-      if (window.cast && cast.framework && isCastApiReady) {
-        const castContext = cast.framework.CastContext.getInstance();
-        const session = castContext.getCurrentSession();
-        if (session) {
-          sendVideoToCast();
-          return;
-        }
-
-        castContext.requestSession()
-          .then(() => {
-            sendVideoToCast();
-          })
-          .catch((err) => {
-            console.log('Cast session request dismissed or error:', err);
-            if (err !== 'cancel' && err !== 'canceled') {
-              openCastModal();
-            }
-          });
-      } else {
-        openCastModal();
-      }
+      openCastModal();
     }
 
     function triggerNativeCastFromModal() {
