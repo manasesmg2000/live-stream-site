@@ -22,14 +22,23 @@ class PresenceService {
     // 2. Enviar evento de entrada al panel de admin
     _sendSignal('LOGIN:$_currentUserName|$nowStr');
 
-    // 3. Iniciar latidos periódicos cada 30 segundos
+    // 3. Iniciar latidos periódicos cada 20 segundos
     _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       if (_currentUserName != null && _currentUserName!.isNotEmpty) {
         final t = DateTime.now().toLocal().toString().split('.').first;
         _sendSignal('PING:$_currentUserName|$t');
       }
     });
+  }
+
+  /// Notifica al panel que el usuario salió de la app o cerró la pantalla
+  static void logout() {
+    if (_currentUserName != null && _currentUserName!.isNotEmpty) {
+      final t = DateTime.now().toLocal().toString().split('.').first;
+      _sendSignal('LOGOUT:$_currentUserName|$t');
+    }
+    stop();
   }
 
   static void stop() {
