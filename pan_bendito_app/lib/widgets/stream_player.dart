@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/tv_cast_service.dart';
 import 'tv_cast_modal.dart';
 
 class StreamPlayer extends StatefulWidget {
@@ -28,6 +29,26 @@ class _StreamPlayerState extends State<StreamPlayer> {
       ..setUserAgent(
         'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36',
       )
+      ..addJavaScriptChannel(
+        'TvCaster',
+        onMessageReceived: (JavaScriptMessage message) async {
+          final targetVideoId = message.message.isNotEmpty ? message.message : widget.videoId;
+          final tvIp = await TvCastService.discoverFirstTvIp();
+          if (tvIp != null) {
+            await TvCastService.launchYouTubeOnTv(tvIp, targetVideoId);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Vídeo enviado a la TV ($tvIp)'),
+                  backgroundColor: const Color(0xFF1B4D3E),
+                ),
+              );
+            }
+          } else if (mounted) {
+            TvCastModal.show(context, targetVideoId);
+          }
+        },
+      )
       ..loadRequest(
         Uri.parse('https://manasesmg2000.github.io/live-stream-site/embed.html?v=$videoId'),
       );
@@ -41,35 +62,6 @@ class _StreamPlayerState extends State<StreamPlayer> {
         Uri.parse('https://manasesmg2000.github.io/live-stream-site/embed.html?v=${widget.videoId}'),
       );
     }
-  }
-
-  String _buildHtml(String videoId) {
-    return '''
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="referrer" content="strict-origin-when-cross-origin">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; background: #000; }
-    html, body { width: 100%; height: 100%; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-    iframe { width: 100%; height: 100%; border: none; }
-  </style>
-</head>
-<body>
-  <iframe
-    id="yt-player"
-    src="https://www.youtube.com/embed/$videoId?autoplay=1&enablejsapi=1&playsinline=1&rel=0&modestbranding=1&origin=https%3A%2F%2Fmanasesmg2000.github.io&widget_referrer=https%3A%2F%2Fmanasesmg2000.github.io"
-    title="Directo en vivo"
-    frameborder="0"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-    referrerpolicy="strict-origin-when-cross-origin"
-    allowfullscreen>
-  </iframe>
-</body>
-</html>
-''';
   }
 
   Future<void> _openYouTube() async {
@@ -108,7 +100,7 @@ class _StreamPlayerState extends State<StreamPlayer> {
         // Botones de acción debajo del reproductor
         Row(
           children: [
-            // Botón Transmitir a la TV (Búsqueda activa de dispositivos)
+            // Botón Transmitir a la TV (Búsqueda DIAL activa)
             Expanded(
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.tv, size: 18),
