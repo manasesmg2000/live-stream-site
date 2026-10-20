@@ -16,15 +16,32 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _userName;
   bool _showingPreviousVideo = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     NativeBridge.requestNotificationPermission();
     _checkUserRegistration();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    PresenceService.logout();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      PresenceService.logout();
+    } else if (state == AppLifecycleState.resumed && _userName != null) {
+      PresenceService.registerAndStart(_userName!);
+    }
   }
 
   Future<void> _checkUserRegistration() async {
