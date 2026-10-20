@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/tv_cast_service.dart';
@@ -72,7 +71,7 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
   Future<void> _castTo(DiscoveredTv tv) async {
     setState(() {
       _castingToId = tv.id;
-      _statusMessage = 'Enviando señal a ${tv.name}...';
+      _statusMessage = 'Conectando con ${tv.name}...';
     });
 
     final success = await _castService.castToDevice(tv, widget.videoId);
@@ -83,15 +82,13 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
       setState(() {
         _castingToId = null;
         _successfulTvId = tv.id;
-        _statusMessage = '¡Conectado con ${tv.name}! Abriendo directo en la TV... 🎉';
+        _statusMessage = '¡Transmitiendo en ${tv.name}! El directo se está reproduciendo en tu TV 🎉';
       });
     } else {
       setState(() {
         _castingToId = null;
-        _successfulTvId = tv.id;
-        _statusMessage = 'Enlazando con ${tv.name}... Abriendo directo.';
+        _statusMessage = 'Se envió la orden a ${tv.name}. Si la TV te pide confirmar, pulsa Aceptar.';
       });
-      await _launchYouTubeDirect();
     }
   }
 
@@ -373,7 +370,7 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
                                             ),
                                           )
                                         : Text(
-                                            isSuccess ? 'Emitiendo' : 'Transmitir',
+                                            isSuccess ? 'Transmitiendo' : 'Transmitir',
                                             style: const TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
@@ -415,7 +412,7 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
 
             const SizedBox(height: 14),
 
-            // Acceso rápido directo para enlazar con cualquier pantalla
+            // Acceso rápido directo para abrir en la app de YouTube del móvil/TV
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -445,7 +442,7 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
                         Text(
-                          'Emitir directo en pantalla',
+                          'Emitir por YouTube',
                           style: TextStyle(
                             color: Color(0xFFE8EEF8),
                             fontSize: 13,
@@ -453,7 +450,7 @@ class _TvCastDiscoverySheetState extends State<_TvCastDiscoverySheet>
                           ),
                         ),
                         Text(
-                          'Abrir en la app de YouTube conectada a tu TV',
+                          'Abrir directo en la app de YouTube',
                           style: TextStyle(
                             color: Color(0xFF7090C0),
                             fontSize: 11,
