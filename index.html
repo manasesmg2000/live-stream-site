@@ -305,6 +305,16 @@
       <div class="divider"></div>
       <h2>No hay directo disponible</h2>
       <p>Vuelve pronto. Cuando empiece la transmisión en vivo, aparecerá aquí automáticamente.</p>
+      
+      <div id="prev-video-container" class="hidden" style="margin-top: 8px;">
+        <button id="btn-watch-prev" class="btn-action" style="padding: 12px 24px; font-size: 0.95rem; background: #223054; border: 1.5px solid #7090c0; color: #e8eef8;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm4.3 14.3L11 13V7h1.5v5.2l4.8 2.8-.5 1.3z"/>
+          </svg>
+          <span>Ver culto anterior</span>
+        </button>
+      </div>
+
       <a
         href="https://www.youtube.com/@pambenditoTV"
         target="_blank"
@@ -373,6 +383,7 @@
 
     let currentLiveState = null;
     let currentVideoId   = null;
+    let lastKnownVideoId = '';
 
     // ────────────────────────────────────────────
     // Renderizado de UI y Señales en tiempo real
@@ -381,28 +392,49 @@
       if (typeof rawMsg !== 'string') return;
       const msg = rawMsg.trim();
       if (msg.startsWith('LIVE:')) {
-        const vid = extractVideoId(msg.substring(5));
+        const parts = msg.substring(5).split('|');
+        const vid = extractVideoId(parts[0]);
+        if (parts[1]) lastKnownVideoId = extractVideoId(parts[1]);
         renderUI(true, vid);
-      } else if (msg === 'OFFLINE') {
+      } else if (msg.startsWith('OFFLINE')) {
+        const parts = msg.split('|');
+        if (parts[1]) lastKnownVideoId = extractVideoId(parts[1]);
         renderUI(false, '');
       }
     }
 
-    function renderUI(isLive, vid) {
-      if (isLive === currentLiveState && vid === currentVideoId) return;
+    function renderUI(isLive, vid, isPlayingPrevious = false) {
+      if (isLive === currentLiveState && vid === currentVideoId && !isPlayingPrevious) return;
       currentLiveState = isLive;
       currentVideoId   = vid;
 
-      const noLive        = document.getElementById('no-live');
-      const liveContainer = document.getElementById('live-container');
-      const badge         = document.getElementById('badge');
-      const iframe        = document.getElementById('yt-iframe');
-      const btnOpenYt     = document.getElementById('btn-open-yt');
+      const noLive             = document.getElementById('no-live');
+      const liveContainer      = document.getElementById('live-container');
+      const badge              = document.getElementById('badge');
+      const iframe             = document.getElementById('yt-iframe');
+      const btnOpenYt          = document.getElementById('btn-open-yt');
+      const prevVideoContainer = document.getElementById('prev-video-container');
+      const btnWatchPrev       = document.getElementById('btn-watch-prev');
+
+      if (lastKnownVideoId && prevVideoContainer) {
+        prevVideoContainer.classList.remove('hidden');
+        btnWatchPrev.onclick = () => {
+          renderUI(true, lastKnownVideoId, true);
+        };
+      }
 
       if (isLive && vid) {
         noLive.classList.add('hidden');
         liveContainer.classList.remove('hidden');
-        badge.classList.remove('hidden');
+        if (isPlayingPrevious) {
+          badge.classList.remove('hidden');
+          badge.textContent = '🎬 CULTO ANTERIOR';
+          badge.style.background = '#223054';
+        } else {
+          badge.classList.remove('hidden');
+          badge.textContent = '● EN DIRECTO';
+          badge.style.background = 'linear-gradient(135deg, #c0392b, #e74c3c)';
+        }
 
         const originParam = (window.location.origin && window.location.origin.startsWith('http')) 
           ? `&origin=${encodeURIComponent(window.location.origin)}` 
@@ -413,7 +445,7 @@
           btnOpenYt.href = `https://www.youtube.com/watch?v=${vid}`;
         }
 
-        document.title = '🔴 Directo — Iglesia de Pan Bendito';
+        document.title = isPlayingPrevious ? 'Culto anterior — Iglesia de Pan Bendito' : '🔴 Directo — Iglesia de Pan Bendito';
       } else {
         noLive.classList.remove('hidden');
         liveContainer.classList.add('hidden');
@@ -465,6 +497,7 @@
         const resPages = await fetch(`./config.json?_t=${Date.now()}`, { cache: 'no-store' });
         if (resPages.ok) {
           const cfg = await resPages.json();
+          if (cfg.lastVideoId) lastKnownVideoId = extractVideoId(cfg.lastVideoId);
           if (cfg.live && cfg.videoId) {
             renderUI(true, extractVideoId(cfg.videoId));
           } else {
