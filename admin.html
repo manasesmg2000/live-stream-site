@@ -267,7 +267,8 @@
   <!-- Pestañas -->
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('directo')">📡 Directo</button>
-    <button class="tab-btn" onclick="switchTab('usuarios')">👥 Usuarios activos (<span id="tab-count">0</span>)</button>
+    <button class="tab-btn" onclick="switchTab('usuarios')">👥 Usuarios (<span id="tab-count">0</span>)</button>
+    <button class="tab-btn" onclick="switchTab('peticiones')">🙏 Peticiones (<span id="tab-pet-count">0</span>)</button>
     <button class="tab-btn" onclick="switchTab('configuracion')">⚙️ Ajustes</button>
   </div>
 
@@ -390,7 +391,47 @@
 
   </div>
 
-  <!-- ══════════ PESTAÑA 3: CONFIGURACIÓN GITHUB ══════════ -->
+  <!-- ══════════ PESTAÑA 3: PETICIONES DE ORACIÓN (MODERACIÓN) ══════════ -->
+  <div id="tab-peticiones" class="tab-content">
+    
+    <!-- Peticiones Pendientes de Aprobación -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2>⏳ Peticiones Pendientes de Aprobación</h2>
+        <button class="btn btn-action" style="padding: 6px 12px; font-size: 0.8rem;" onclick="checkPendingPetitions()">🔄 Comprobar nuevas</button>
+      </div>
+      <p style="font-size: 0.82rem; color: #8fa5c7; margin-top: -8px;">
+        Revisa y aprueba las peticiones de los hermanos antes de que aparezcan públicamente en la App y la Web.
+      </p>
+
+      <div id="pending-petitions-container">
+        <div style="text-align: center; color: #7090c0; padding: 20px;">
+          No hay peticiones pendientes en este momento.
+        </div>
+      </div>
+    </div>
+
+    <!-- Peticiones Publicadas Actualmente -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2>📋 Peticiones Publicadas en la Iglesia</h2>
+        <button class="btn btn-action" style="padding: 6px 12px; font-size: 0.8rem;" onclick="loadPublishedPetitionsAdmin()">🔄 Recargar</button>
+      </div>
+      <p style="font-size: 0.82rem; color: #8fa5c7; margin-top: -8px;">
+        Lista de peticiones visibles en vivo para todos los usuarios. Puedes retirar cualquier petición si ya se oró o no procede.
+      </p>
+
+      <div id="published-petitions-container">
+        <div style="text-align: center; color: #7090c0; padding: 20px;">
+          Cargando peticiones publicadas...
+        </div>
+      </div>
+      <div id="pet-save-status" class="status-box"></div>
+    </div>
+
+  </div>
+
+  <!-- ══════════ PESTAÑA 4: CONFIGURACIÓN GITHUB ══════════ -->
   <div id="tab-configuracion" class="tab-content">
     <div class="card">
       <h2>⚙️ Configuración de GitHub</h2>
@@ -434,12 +475,17 @@
         b.classList.toggle('active', 
           (tabId === 'directo' && i === 0) ||
           (tabId === 'usuarios' && i === 1) ||
-          (tabId === 'configuracion' && i === 2)
+          (tabId === 'peticiones' && i === 2) ||
+          (tabId === 'configuracion' && i === 3)
         );
       });
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       const activeContent = document.getElementById('tab-' + tabId);
       if (activeContent) activeContent.classList.add('active');
+      if (tabId === 'peticiones') {
+        loadPublishedPetitionsAdmin();
+        checkPendingPetitions();
+      }
     }
 
     // ────────────────────────────────────────────
@@ -921,13 +967,302 @@
     }
 
     // ────────────────────────────────────────────
+    // Moderación y Gestión de Peticiones
+    // ────────────────────────────────────────────
+    const PETICIONES_ADMIN_TOPIC = 'https://ntfy.sh/iglesia-pan-bendito-peticiones-admin-v1';
+    const PETICIONES_FEED_TOPIC  = 'https://ntfy.sh/iglesia-pan-bendito-peticiones-feed-v1';
+    const PETICIONES_PATH        = 'peticiones.json';
+
+    let pendingPetitions = [];
+    let publishedPetitions = [];
+    let dismissedPetitionIds = new Set(JSON.parse(localStorage.getItem('pb_dismissed_pet_ids') || '[]'));
+
+    function saveDismissedIds() {
+      localStorage.setItem('pb_dismissed_pet_ids', JSON.stringify([...dismissedPetitionIds]));
+    }
+
+    function initPetitionsStream() {
+      if (!window.EventSource) return;
+      try {
+        const sse = new EventSource(`${PETICIONES_ADMIN_TOPIC}/sse`);
+        sse.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.event === 'message' && data.message) {
+              handleIncomingPending(data.message);
+            }
+          } catch(e) {}
+        };
+      } catch(e) {}
+    }
+
+    function handleIncomingPending(raw) {
+      try {
+        const item = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!item || !item.id || dismissedPetitionIds.has(item.id)) return;
+        if (publishedPetitions.some(p => p.id === item.id)) return;
+        if (!pendingPetitions.some(p => p.id === item.id)) {
+          pendingPetitions.unshift(item);
+          renderPendingPetitions();
+          updatePetTabCount();
+        }
+      } catch(e) {}
+    }
+
+    async function checkPendingPetitions() {
+      try {
+        const res = await fetch(`${PETICIONES_ADMIN_TOPIC}/json?poll=1&since=all`, { cache: 'no-store' });
+        if (res.ok) {
+          const text = await res.text();
+          const lines = text.trim().split('\n').filter(Boolean);
+          for (const line of lines) {
+            try {
+              const item = JSON.parse(line);
+              if (item.event === 'message' && item.message) {
+                handleIncomingPending(item.message);
+              }
+            } catch(e) {}
+          }
+        }
+      } catch(e) {}
+    }
+
+    function updatePetTabCount() {
+      const el = document.getElementById('tab-pet-count');
+      if (el) el.textContent = pendingPetitions.length;
+    }
+
+    function renderPendingPetitions() {
+      const container = document.getElementById('pending-petitions-container');
+      updatePetTabCount();
+
+      if (pendingPetitions.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; color: #7090c0; padding: 24px; font-size: 0.9rem;">
+            ✅ No hay peticiones pendientes en este momento.
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      pendingPetitions.forEach(p => {
+        const isAnon = p.isAnonymous === true;
+        const authorDesc = isAnon
+          ? `<span style="color:#e0b96b; font-style:italic;">👤 Anónimo</span> <span style="color:#8fa5c7; font-size:0.75rem;">(Autor real: ${escapeHtml(p.realAuthor || 'Desconocido')})</span>`
+          : `<span style="color:#e8eef8; font-weight:bold;">👤 ${escapeHtml(p.author || p.realAuthor || 'Hermano')}</span>`;
+
+        html += `
+          <div style="background:#111b2b; border:1px solid #2e3f6a; border-radius:12px; padding:16px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div>${authorDesc}</div>
+              <span style="font-size:0.75rem; color:#7090c0;">${escapeHtml(p.date || '')}</span>
+            </div>
+            <div style="font-size:0.95rem; color:#f0f4fc; line-height:1.5; margin-bottom:14px; white-space:pre-wrap;">
+              ${escapeHtml(p.text)}
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+              <button class="btn btn-danger" style="padding:6px 14px; font-size:0.8rem;" onclick="rejectPetition('${p.id}')">❌ Rechazar</button>
+              <button class="btn btn-success" style="padding:6px 16px; font-size:0.82rem; font-weight:bold;" onclick="approvePetition('${p.id}')">✅ Aprobar y Publicar</button>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    async function loadPublishedPetitionsAdmin() {
+      const s = getSettings();
+      const container = document.getElementById('published-petitions-container');
+      try {
+        let list = [];
+        if (s.user && s.repo && s.token) {
+          try {
+            const fileInfo = await getFileInfo(s, PETICIONES_PATH);
+            const contentStr = decodeURIComponent(escape(atob(fileInfo.content.replace(/\s/g, ''))));
+            list = JSON.parse(contentStr);
+          } catch(e) {
+            const res = await fetch(`./peticiones.json?_t=${Date.now()}`, { cache: 'no-store' });
+            if (res.ok) list = await res.json();
+          }
+        } else {
+          const res = await fetch(`./peticiones.json?_t=${Date.now()}`, { cache: 'no-store' });
+          if (res.ok) list = await res.json();
+        }
+
+        publishedPetitions = Array.isArray(list) ? list : [];
+        renderPublishedPetitions();
+      } catch(e) {
+        container.innerHTML = `<div style="text-align:center; color:#e74c3c; padding:20px;">Error al cargar peticiones: ${e.message}</div>`;
+      }
+    }
+
+    function renderPublishedPetitions() {
+      const container = document.getElementById('published-petitions-container');
+      if (publishedPetitions.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: #7090c0; padding: 20px;">No hay peticiones publicadas actualmente.</div>`;
+        return;
+      }
+
+      let html = '';
+      publishedPetitions.forEach(p => {
+        html += `
+          <div style="background:#111b2b; border:1px solid #263654; border-radius:10px; padding:12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <div style="flex:1;">
+              <div style="display:flex; gap:8px; align-items:center; margin-bottom:4px;">
+                <strong style="color:${p.isAnonymous ? '#e0b96b' : '#e8eef8'}; font-size:0.85rem;">
+                  ${escapeHtml(p.author)} ${p.isAnonymous ? '(Anónimo)' : ''}
+                </strong>
+                <span style="font-size:0.75rem; color:#7090c0;">· ${escapeHtml(p.date || '')}</span>
+                <span style="font-size:0.75rem; color:#e74c3c; font-weight:bold;">❤️ ${p.likes || 0}</span>
+              </div>
+              <div style="font-size:0.88rem; color:#c8d4e8; line-height:1.4;">${escapeHtml(p.text)}</div>
+            </div>
+            <button class="btn btn-danger" style="padding:4px 8px; font-size:0.75rem; align-self:center;" onclick="deletePublishedPetition('${p.id}')">🗑️ Retirar</button>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    async function approvePetition(petId) {
+      const idx = pendingPetitions.findIndex(p => p.id === petId);
+      if (idx === -1) return;
+      const pet = pendingPetitions[idx];
+
+      const s = getSettings();
+      if (!s.user || !s.repo || !s.token) {
+        alert('Configura primero el usuario, repositorio y token de GitHub en la pestaña Ajustes.');
+        return;
+      }
+
+      showStatus('pet-save-status', 'pending', '⏳ Guardando petición aprobada en GitHub...');
+
+      try {
+        let sha = null;
+        try {
+          const fileInfo = await getFileInfo(s, PETICIONES_PATH);
+          sha = fileInfo.sha;
+          const contentStr = decodeURIComponent(escape(atob(fileInfo.content.replace(/\s/g, ''))));
+          publishedPetitions = JSON.parse(contentStr);
+        } catch(e) {
+          sha = null;
+        }
+
+        publishedPetitions.unshift({
+          id: pet.id,
+          author: pet.author,
+          isAnonymous: pet.isAnonymous === true,
+          text: pet.text,
+          date: pet.date,
+          likes: pet.likes || 0
+        });
+
+        const newJsonStr = JSON.stringify(publishedPetitions, null, 2) + '\n';
+        const contentB64 = btoa(unescape(encodeURIComponent(newJsonStr)));
+
+        const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${PETICIONES_PATH}`;
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `token ${s.token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: `🙏 Publicar petición de oración: ${pet.author}`,
+            content: contentB64,
+            sha: sha || undefined,
+            branch: s.branch,
+          }),
+        });
+
+        if (!res.ok) throw new Error(`GitHub error: ${res.statusText}`);
+
+        pendingPetitions.splice(idx, 1);
+        dismissedPetitionIds.add(pet.id);
+        saveDismissedIds();
+
+        renderPendingPetitions();
+        renderPublishedPetitions();
+
+        fetch(PETICIONES_FEED_TOPIC, { method: 'POST', body: 'UPDATE' }).catch(() => {});
+
+        showStatus('pet-save-status', 'ok', '✅ ¡Petición aprobada y publicada con éxito en la App y la Web!');
+        setTimeout(() => {
+          const el = document.getElementById('pet-save-status');
+          if (el) el.className = 'status-box';
+        }, 5000);
+      } catch(e) {
+        showStatus('pet-save-status', 'error', `⚠️ Error al publicar: ${e.message}`);
+      }
+    }
+
+    function rejectPetition(petId) {
+      const idx = pendingPetitions.findIndex(p => p.id === petId);
+      if (idx !== -1) {
+        pendingPetitions.splice(idx, 1);
+        dismissedPetitionIds.add(petId);
+        saveDismissedIds();
+        renderPendingPetitions();
+      }
+    }
+
+    async function deletePublishedPetition(petId) {
+      if (!confirm('¿Estás seguro de que deseas retirar esta petición de la lista pública?')) return;
+      const s = getSettings();
+      if (!s.user || !s.repo || !s.token) {
+        alert('Configura primero el usuario, repositorio y token de GitHub en la pestaña Ajustes.');
+        return;
+      }
+
+      showStatus('pet-save-status', 'pending', '⏳ Eliminando petición de GitHub...');
+      try {
+        const fileInfo = await getFileInfo(s, PETICIONES_PATH);
+        const sha = fileInfo.sha;
+        publishedPetitions = publishedPetitions.filter(p => p.id !== petId);
+
+        const newJsonStr = JSON.stringify(publishedPetitions, null, 2) + '\n';
+        const contentB64 = btoa(unescape(encodeURIComponent(newJsonStr)));
+
+        const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${PETICIONES_PATH}`;
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `token ${s.token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: `🗑️ Retirar petición de oración (${petId})`,
+            content: contentB64,
+            sha,
+            branch: s.branch,
+          }),
+        });
+
+        if (!res.ok) throw new Error(`GitHub error: ${res.statusText}`);
+
+        renderPublishedPetitions();
+        fetch(PETICIONES_FEED_TOPIC, { method: 'POST', body: 'UPDATE' }).catch(() => {});
+        showStatus('pet-save-status', 'ok', '✅ Petición retirada correctamente.');
+      } catch(e) {
+        showStatus('pet-save-status', 'error', `⚠️ Error: ${e.message}`);
+      }
+    }
+
+    // ────────────────────────────────────────────
     // Arranque
     // ────────────────────────────────────────────
     loadSettings();
     loadCurrentState();
     initPresenceStream();
     refreshPresence();
+    initPetitionsStream();
+    checkPendingPetitions();
+    loadPublishedPetitionsAdmin();
     setInterval(renderActiveUsers, 10000); // reevaluar cada 10s el estado online/offline
+    setInterval(checkPendingPetitions, 15000); // revisar nuevas peticiones cada 15s
   </script>
 </body>
 </html>
