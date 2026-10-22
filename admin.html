@@ -650,18 +650,20 @@
     }
 
     // ────────────────────────────────────────────
-    // Señales y Notificaciones Push (ntfy)
+    // Señales y Notificaciones Push (Servidores de alta disponibilidad)
     // ────────────────────────────────────────────
-    const LIVE_TOPIC     = 'https://ntfy.sh/iglesia-pan-bendito-live-channel-v1';
-    const PRESENCE_TOPIC = 'https://ntfy.sh/iglesia-pan-bendito-presence-v1';
+    const PRIMARY_SERVER  = 'https://ntfy.adminforge.de';
+    const FALLBACK_SERVER = 'https://ntfy.sh';
+
+    const LIVE_TOPIC        = `${PRIMARY_SERVER}/iglesia-pan-bendito-live-channel-v1`;
+    const LIVE_TOPIC_FB     = `${FALLBACK_SERVER}/iglesia-pan-bendito-live-channel-v1`;
+    const PRESENCE_TOPIC    = `${PRIMARY_SERVER}/iglesia-pan-bendito-presence-v1`;
+    const PRESENCE_TOPIC_FB = `${FALLBACK_SERVER}/iglesia-pan-bendito-presence-v1`;
 
     function sendRealtimeSignal(signal, notificationHeaders = {}) {
       try {
-        fetch(LIVE_TOPIC, {
-          method: 'POST',
-          headers: notificationHeaders,
-          body: signal,
-        }).catch(() => {});
+        fetch(LIVE_TOPIC, { method: 'POST', headers: notificationHeaders, body: signal }).catch(() => {});
+        fetch(LIVE_TOPIC_FB, { method: 'POST', headers: notificationHeaders, body: signal }).catch(() => {});
       } catch (e) {}
     }
 
@@ -859,6 +861,7 @@
     }
 
     async function refreshPresence() {
+      let ok = false;
       try {
         const res = await fetch(`${PRESENCE_TOPIC}/json?poll=1`, { cache: 'no-store' });
         if (res.ok) {
@@ -869,13 +872,32 @@
               const item = JSON.parse(line);
               if (item.event === 'message' && item.message) {
                 const itemTime = item.time ? item.time * 1000 : null;
-                // Si el mensaje es más viejo de 45 segundos, no marcarlo como conectado
                 handlePresenceMessage(item.message, itemTime);
               }
             } catch (_) {}
           }
+          ok = true;
         }
       } catch (_) {}
+
+      if (!ok) {
+        try {
+          const res = await fetch(`${PRESENCE_TOPIC_FB}/json?poll=1`, { cache: 'no-store' });
+          if (res.ok) {
+            const text = await res.text();
+            const lines = text.trim().split('\n').filter(Boolean);
+            for (const line of lines) {
+              try {
+                const item = JSON.parse(line);
+                if (item.event === 'message' && item.message) {
+                  const itemTime = item.time ? item.time * 1000 : null;
+                  handlePresenceMessage(item.message, itemTime);
+                }
+              } catch (_) {}
+            }
+          }
+        } catch (_) {}
+      }
       renderActiveUsers();
     }
 
@@ -969,9 +991,16 @@
     // ────────────────────────────────────────────
     // Moderación y Gestión de Peticiones
     // ────────────────────────────────────────────
-    const PETICIONES_ADMIN_TOPIC = 'https://ntfy.sh/iglesia-pan-bendito-peticiones-admin-v1';
-    const PETICIONES_FEED_TOPIC  = 'https://ntfy.sh/iglesia-pan-bendito-peticiones-feed-v1';
-    const PETICIONES_PATH        = 'peticiones.json';
+    const PETICIONES_ADMIN_TOPIC    = `${PRIMARY_SERVER}/iglesia-pan-bendito-peticiones-admin-v1`;
+    const PETICIONES_ADMIN_TOPIC_FB = `${FALLBACK_SERVER}/iglesia-pan-bendito-peticiones-admin-v1`;
+
+    const PETICIONES_FEED_TOPIC     = `${PRIMARY_SERVER}/iglesia-pan-bendito-peticiones-feed-v1`;
+    const PETICIONES_FEED_TOPIC_FB  = `${FALLBACK_SERVER}/iglesia-pan-bendito-peticiones-feed-v1`;
+
+    const LIKES_TOPIC               = `${PRIMARY_SERVER}/iglesia-pan-bendito-peticiones-likes-v1`;
+    const LIKES_TOPIC_FB            = `${FALLBACK_SERVER}/iglesia-pan-bendito-peticiones-likes-v1`;
+
+    const PETICIONES_PATH           = 'peticiones.json';
 
     let pendingPetitions = [];
     let publishedPetitions = [];
@@ -1010,6 +1039,8 @@
     }
 
     async function checkPendingPetitions() {
+      // 1. Probar servidor primario (adminforge.de: 150ms de latencia, nunca bloqueado)
+      let ok = false;
       try {
         const res = await fetch(`${PETICIONES_ADMIN_TOPIC}/json?poll=1&since=all`, { cache: 'no-store' });
         if (res.ok) {
@@ -1023,8 +1054,28 @@
               }
             } catch(e) {}
           }
+          ok = true;
         }
       } catch(e) {}
+
+      // 2. Si falló, intentar fallback
+      if (!ok) {
+        try {
+          const res = await fetch(`${PETICIONES_ADMIN_TOPIC_FB}/json?poll=1&since=all`, { cache: 'no-store' });
+          if (res.ok) {
+            const text = await res.text();
+            const lines = text.trim().split('\n').filter(Boolean);
+            for (const line of lines) {
+              try {
+                const item = JSON.parse(line);
+                if (item.event === 'message' && item.message) {
+                  handleIncomingPending(item.message);
+                }
+              } catch(e) {}
+            }
+          }
+        } catch(e) {}
+      }
     }
 
     function updatePetTabCount() {
@@ -1208,6 +1259,18 @@
             'Tags': 'white_check_mark'
           },
           body: JSON.stringify(broadcastData)
+        };
+
+        const broadcastStr = JSON.stringify(broadcastData);
+        fetch(PETICIONES_FEED_TOPIC, {
+          method: 'POST',
+          headers: { 'Title': 'Peticion Aprobada', 'Tags': 'white_check_mark' },
+          body: broadcastStr
+        }).catch(() => {});
+        fetch(PETICIONES_FEED_TOPIC_FB, {
+          method: 'POST',
+          headers: { 'Title': 'Peticion Aprobada', 'Tags': 'white_check_mark' },
+          body: broadcastStr
         }).catch(() => {});
 
         showStatus('pet-save-status', 'ok', '✅ ¡Petición aprobada y publicada con éxito en la App y la Web!');
@@ -1227,11 +1290,9 @@
         dismissedPetitionIds.add(petId);
         saveDismissedIds();
         renderPendingPetitions();
-        fetch(PETICIONES_FEED_TOPIC, {
-          method: 'POST',
-          headers: { 'Title': 'Peticion Rechazada' },
-          body: JSON.stringify({ action: 'REJECTED', id: petId })
-        }).catch(() => {});
+        const rejStr = JSON.stringify({ action: 'REJECTED', id: petId });
+        fetch(PETICIONES_FEED_TOPIC, { method: 'POST', headers: { 'Title': 'Peticion Rechazada' }, body: rejStr }).catch(() => {});
+        fetch(PETICIONES_FEED_TOPIC_FB, { method: 'POST', headers: { 'Title': 'Peticion Rechazada' }, body: rejStr }).catch(() => {});
       }
     }
 
@@ -1271,11 +1332,9 @@
         if (!res.ok) throw new Error(`GitHub error: ${res.statusText}`);
 
         renderPublishedPetitions();
-        fetch(PETICIONES_FEED_TOPIC, {
-          method: 'POST',
-          headers: { 'Title': 'Peticion Eliminada' },
-          body: JSON.stringify({ action: 'DELETED', id: petId, petitions: publishedPetitions })
-        }).catch(() => {});
+        const delStr = JSON.stringify({ action: 'DELETED', id: petId, petitions: publishedPetitions });
+        fetch(PETICIONES_FEED_TOPIC, { method: 'POST', headers: { 'Title': 'Peticion Eliminada' }, body: delStr }).catch(() => {});
+        fetch(PETICIONES_FEED_TOPIC_FB, { method: 'POST', headers: { 'Title': 'Peticion Eliminada' }, body: delStr }).catch(() => {});
         showStatus('pet-save-status', 'ok', '✅ Petición retirada correctamente.');
       } catch(e) {
         showStatus('pet-save-status', 'error', `⚠️ Error: ${e.message}`);
@@ -1292,8 +1351,9 @@
     initPetitionsStream();
     checkPendingPetitions();
     loadPublishedPetitionsAdmin();
-    setInterval(renderActiveUsers, 10000); // reevaluar cada 10s el estado online/offline
-    setInterval(checkPendingPetitions, 15000); // revisar nuevas peticiones cada 15s
+    setInterval(renderActiveUsers, 5000); // reevaluar cada 5s el estado online/offline
+    setInterval(refreshPresence, 5000);   // sincronizar conexiones cada 5s
+    setInterval(checkPendingPetitions, 3000); // revisar nuevas peticiones cada 3 segundos
   </script>
 </body>
 </html>
