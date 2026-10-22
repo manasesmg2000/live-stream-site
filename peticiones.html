@@ -547,9 +547,15 @@
   </footer>
 
   <script>
-    const ADMIN_TOPIC = 'https://ntfy.sh/iglesia-pan-bendito-peticiones-admin-v1';
-    const LIKES_TOPIC = 'https://ntfy.sh/iglesia-pan-bendito-peticiones-likes-v1';
-    const FEED_TOPIC  = 'https://ntfy.sh/iglesia-pan-bendito-peticiones-feed-v1';
+    const PRIMARY_SERVER  = 'https://ntfy.adminforge.de';
+    const FALLBACK_SERVER = 'https://ntfy.sh';
+
+    const ADMIN_TOPIC     = `${PRIMARY_SERVER}/iglesia-pan-bendito-peticiones-admin-v1`;
+    const ADMIN_TOPIC_FB  = `${FALLBACK_SERVER}/iglesia-pan-bendito-peticiones-admin-v1`;
+    const LIKES_TOPIC     = `${PRIMARY_SERVER}/iglesia-pan-bendito-peticiones-likes-v1`;
+    const LIKES_TOPIC_FB  = `${FALLBACK_SERVER}/iglesia-pan-bendito-peticiones-likes-v1`;
+    const FEED_TOPIC      = `${PRIMARY_SERVER}/iglesia-pan-bendito-peticiones-feed-v1`;
+    const FEED_TOPIC_FB   = `${FALLBACK_SERVER}/iglesia-pan-bendito-peticiones-feed-v1`;
 
     let likedSet = new Set(JSON.parse(localStorage.getItem('pb_liked_petitions') || '[]'));
     let myPending = JSON.parse(sessionStorage.getItem('pb_my_pending_pet') || '[]');
@@ -798,9 +804,9 @@
       closePetitionModal();
       document.getElementById('pet-text').value = '';
 
-      // Notificar al admin via ntfy
+      // Notificar al admin via primario y respaldo
       try {
-        await fetch(ADMIN_TOPIC, {
+        fetch(ADMIN_TOPIC, {
           method: 'POST',
           headers: {
             'Title': isAnon ? 'Nueva Peticion Anonima' : `Peticion de ${realAuthor}`,
@@ -808,7 +814,16 @@
             'Tags': 'pray,hand',
           },
           body: JSON.stringify(payload)
-        });
+        }).catch(() => {});
+        fetch(ADMIN_TOPIC_FB, {
+          method: 'POST',
+          headers: {
+            'Title': isAnon ? 'Nueva Peticion Anonima' : `Peticion de ${realAuthor}`,
+            'Priority': 'default',
+            'Tags': 'pray,hand',
+          },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
       } catch (e) {}
 
       alert('¡Tu petición ha sido enviada con éxito! Será revisada y aprobada por el pastor/administrador antes de publicarse en la lista.');
