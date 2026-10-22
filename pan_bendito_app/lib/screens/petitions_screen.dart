@@ -49,11 +49,21 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
       'https://raw.githubusercontent.com/manasesmg2000/live-stream-site/main/peticiones.json';
   static const String _peticionesFallbackUrl =
       'https://manasesmg2000.github.io/live-stream-site/peticiones.json';
-  static const String _adminTopic =
+
+  // Servidores de mensajería (Primario adminforge.de + Respaldo ntfy.sh)
+  static const String _adminTopicPrimary =
+      'https://ntfy.adminforge.de/iglesia-pan-bendito-peticiones-admin-v1';
+  static const String _adminTopicFallback =
       'https://ntfy.sh/iglesia-pan-bendito-peticiones-admin-v1';
-  static const String _feedTopic =
+
+  static const String _feedTopicPrimary =
+      'https://ntfy.adminforge.de/iglesia-pan-bendito-peticiones-feed-v1';
+  static const String _feedTopicFallback =
       'https://ntfy.sh/iglesia-pan-bendito-peticiones-feed-v1';
-  static const String _likesTopic =
+
+  static const String _likesTopicPrimary =
+      'https://ntfy.adminforge.de/iglesia-pan-bendito-peticiones-likes-v1';
+  static const String _likesTopicFallback =
       'https://ntfy.sh/iglesia-pan-bendito-peticiones-likes-v1';
 
   List<PetitionItem> _petitions = [];
@@ -100,8 +110,12 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
   Future<void> _pollFeedUpdates() async {
     try {
       // 1. Escuchar actualizaciones de peticiones aprobadas / eliminadas
-      final uri = Uri.parse('$_feedTopic/json?poll=1&since=12s');
-      final res = await http.get(uri).timeout(const Duration(seconds: 3));
+      final uri = Uri.parse('$_feedTopicPrimary/json?poll=1&since=12s');
+      var res = await http.get(uri).timeout(const Duration(seconds: 3)).catchError((_) => http.Response('', 500));
+      if (res.statusCode != 200) {
+        res = await http.get(Uri.parse('$_feedTopicFallback/json?poll=1&since=12s')).timeout(const Duration(seconds: 2)).catchError((_) => http.Response('', 500));
+      }
+
       if (res.statusCode == 200 && res.body.trim().isNotEmpty) {
         final lines = res.body.trim().split('\n');
         bool needsRefresh = false;
@@ -144,8 +158,12 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
       }
 
       // 2. Escuchar señales de likes en tiempo real
-      final likesUri = Uri.parse('$_likesTopic/json?poll=1&since=8s');
-      final likesRes = await http.get(likesUri).timeout(const Duration(seconds: 3));
+      final likesUri = Uri.parse('$_likesTopicPrimary/json?poll=1&since=8s');
+      var likesRes = await http.get(likesUri).timeout(const Duration(seconds: 3)).catchError((_) => http.Response('', 500));
+      if (likesRes.statusCode != 200) {
+        likesRes = await http.get(Uri.parse('$_likesTopicFallback/json?poll=1&since=8s')).timeout(const Duration(seconds: 2)).catchError((_) => http.Response('', 500));
+      }
+
       if (likesRes.statusCode == 200 && likesRes.body.trim().isNotEmpty) {
         final lines = likesRes.body.trim().split('\n');
         bool updated = false;
@@ -252,9 +270,16 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
 
         // 4. Agregar recuento de likes acumulados desde ntfy
         try {
-          final likesRes = await http
-              .get(Uri.parse('$_likesTopic/json?poll=1&since=all'))
-              .timeout(const Duration(seconds: 4));
+          var likesRes = await http
+              .get(Uri.parse('$_likesTopicPrimary/json?poll=1&since=all'))
+              .timeout(const Duration(seconds: 4))
+              .catchError((_) => http.Response('', 500));
+          if (likesRes.statusCode != 200) {
+            likesRes = await http
+                .get(Uri.parse('$_likesTopicFallback/json?poll=1&since=all'))
+                .timeout(const Duration(seconds: 3))
+                .catchError((_) => http.Response('', 500));
+          }
           if (likesRes.statusCode == 200 && likesRes.body.trim().isNotEmpty) {
             final lines = likesRes.body.trim().split('\n');
             final Map<String, int> likesMap = {};
@@ -323,22 +348,30 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
     // Guardar en SharedPreferences nativo para persistir entre reinicios
     await NativeBridge.saveLikedPetition(item.id, willLike);
 
-    // Enviar señal a ntfy
+    // Enviar señal a ntfy (primario adminforge y respaldo ntfy.sh)
     try {
       final signal = willLike ? 'LIKE:${item.id}' : 'UNLIKE:${item.id}';
       http.post(
-        Uri.parse(_likesTopic),
+        Uri.parse(_likesTopicPrimary),
         body: signal,
       ).timeout(const Duration(seconds: 3)).catchError((_) => http.Response('', 500));
+      http.post(
+        Uri.parse(_likesTopicFallback),
+        body: signal,
+      ).timeout(const Duration(seconds: 2)).catchError((_) => http.Response('', 500));
     } catch (_) {}
   }
 
   void _sendLikeSignal(String petId) {
     try {
       http.post(
-        Uri.parse(_likesTopic),
+        Uri.parse(_likesTopicPrimary),
         body: 'LIKE:$petId',
       ).timeout(const Duration(seconds: 3)).catchError((_) => http.Response('', 500));
+      http.post(
+        Uri.parse(_likesTopicFallback),
+        body: 'LIKE:$petId',
+      ).timeout(const Duration(seconds: 2)).catchError((_) => http.Response('', 500));
     } catch (_) {}
   }
 
@@ -602,11 +635,11 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
       _myPendingPetitions.insert(0, pendingData);
     });
 
-    // Enviar al canal del administrador (ntfy)
+    // Enviar al canal del administrador (primario adminforge y respaldo ntfy.sh)
     try {
       final jsonMsg = jsonEncode(pendingData);
       await http.post(
-        Uri.parse(_adminTopic),
+        Uri.parse(_adminTopicPrimary),
         headers: {
           'Title': isAnonymous
               ? 'Nueva Peticion Anonima'
@@ -615,7 +648,22 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
           'Tags': 'pray,hand',
         },
         body: jsonMsg,
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 4));
+    } catch (_) {}
+
+    try {
+      final jsonMsg = jsonEncode(pendingData);
+      http.post(
+        Uri.parse(_adminTopicFallback),
+        headers: {
+          'Title': isAnonymous
+              ? 'Nueva Peticion Anonima'
+              : 'Peticion de $realName',
+          'Priority': 'default',
+          'Tags': 'pray,hand',
+        },
+        body: jsonMsg,
+      ).timeout(const Duration(seconds: 2)).catchError((_) => http.Response('', 500));
     } catch (_) {}
 
     if (mounted) {
