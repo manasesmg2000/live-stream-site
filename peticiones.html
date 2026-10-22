@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <title>Peticiones de Oración — Iglesia Pan Bendito</title>
+  <style>
+    :root {
+      --navy:      #1a2740;
+      --navy-dark: #0d1624;
+      --navy-mid:  #223054;
+      --navy-light:#2e3f6a;
+      --silver:    #c8d4e8;
+      --silver-bright: #e8eef8;
+      --gold:      #e0b96b;
+      --gold-dark: #b89343;
+      --accent:    #7090c0;
+      --white:     #f0f4fc;
+      --text-muted:#8da2c0;
+      --border-card: rgba(160, 185, 220, 0.2);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: linear-gradient(160deg, #0a111c 0%, var(--navy) 50%, #0a111c 100%);
+      color: var(--white);
+      font-family: 'Segoe UI', Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    header {
+      width: 100%;
+      background: linear-gradient(90deg, #0d1624 0%, var(--navy-mid) 50%, #0d1624 100%);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid rgba(160,185,220,0.25);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .header-logo {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(200,212,232,0.4);
+      box-shadow: 0 0 12px rgba(100,140,200,0.3);
+    }
+
+    .header-title .main-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--silver-bright);
+      letter-spacing: 0.5px;
+      display: block;
+      line-height: 1.2;
+    }
+
+    .header-title .sub-name {
+      font-size: 0.72rem;
+      color: var(--gold);
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border-card);
+      color: var(--silver);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 7px 14px;
+      border-radius: 20px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .nav-link:hover {
+      background: rgba(255,255,255,0.12);
+      border-color: var(--accent);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .nav-link.active {
+      background: linear-gradient(135deg, #2b4372, #1f3258);
+      color: #fff;
+      border-color: var(--gold);
+    }
+
+    /* ── MAIN ── */
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px 16px 80px;
+    }
+
+    /* Banner informativo */
+    .hero-banner {
+      background: linear-gradient(135deg, rgba(34,48,84,0.7) 0%, rgba(13,22,36,0.9) 100%);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 24px 20px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      margin-bottom: 24px;
+    }
+
+    .hero-banner h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--silver-bright);
+      margin-bottom: 6px;
+    }
+
+    .hero-verse {
+      font-size: 0.95rem;
+      color: var(--gold);
+      font-style: italic;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .btn-create-petition {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #e0b96b, #b89343);
+      color: #0d1624;
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 800;
+      padding: 12px 26px;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(224,185,107,0.35);
+      transition: all 0.2s;
+    }
+
+    .btn-create-petition:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(224,185,107,0.5);
+    }
+
+    /* Sección de peticiones pendientes del usuario */
+    #my-pending-section {
+      margin-bottom: 24px;
+      display: none;
+    }
+
+    .pending-header {
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--gold);
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Tarjetas de peticiones */
+    .petition-card {
+      background: rgba(20, 31, 51, 0.8);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+      backdrop-filter: blur(8px);
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .petition-card:hover {
+      border-color: rgba(160,185,220,0.4);
+      transform: translateY(-1px);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .author-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .avatar-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #223054;
+      border: 1.5px solid var(--gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gold);
+      font-size: 1rem;
+    }
+
+    .avatar-icon.anon {
+      border-color: var(--accent);
+      color: var(--text-muted);
+    }
+
+    .author-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--silver-bright);
+    }
+
+    .author-badge {
+      font-size: 0.72rem;
+      color: var(--accent);
+      display: block;
+    }
+
+    .card-date {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .card-text {
+      font-size: 1.02rem;
+      color: #f0f4fc;
+      line-height: 1.65;
+      margin-bottom: 16px;
+      white-space: pre-wrap;
+    }
+
+    .card-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      border-top: 1px solid rgba(160,185,220,0.1);
+      padding-top: 10px;
+    }
+
+    .btn-like {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border-card);
+      color: var(--silver);
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-like:hover {
+      background: rgba(231,76,60,0.15);
+      border-color: #e74c3c;
+      color: #e74c3c;
+    }
+
+    .btn-like.liked {
+      background: rgba(231,76,60,0.2);
+      border-color: #e74c3c;
+      color: #e74c3c;
+    }
+
+    /* Modal Formulario */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .modal-backdrop.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-box {
+      background: #111b2b;
+      border: 1.5px solid rgba(160,185,220,0.3);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 540px;
+      padding: 24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    }
+
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--silver-bright);
+      margin-bottom: 6px;
+    }
+
+    .modal-sub {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--silver);
+      margin-bottom: 6px;
+    }
+
+    .form-input, .form-textarea {
+      width: 100%;
+      background: #0d1624;
+      border: 1px solid var(--border-card);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 110px;
+    }
+
+    .form-input:focus, .form-textarea:focus {
+      border-color: var(--gold);
+    }
+
+    .anon-box {
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--border-card);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      cursor: pointer;
+    }
+
+    .anon-box input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--gold);
+      cursor: pointer;
+    }
+
+    .notice-box {
+      background: rgba(112, 144, 192, 0.1);
+      border: 1px solid rgba(112, 144, 192, 0.3);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.8rem;
+      color: var(--silver);
+      line-height: 1.4;
+      margin-bottom: 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .btn-cancel {
+      background: transparent;
+      border: 1px solid var(--border-card);
+      color: var(--silver);
+      padding: 10px 18px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-submit {
+      background: linear-gradient(135deg, #e0b96b, #b89343);
+      border: none;
+      color: #0d1624;
+      padding: 10px 22px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    /* Estado de carga */
+    .loading-box {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--silver);
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(160,185,220,0.2);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 14px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    footer {
+      width: 100%;
+      text-align: center;
+      padding: 20px;
+      font-size: 0.78rem;
+      color: rgba(160,185,220,0.4);
+      border-top: 1px solid rgba(160,185,220,0.1);
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <a href="index.html" class="header-left">
+      <img src="logo.png" alt="Logo PAN BENDITO" class="header-logo" onerror="this.src='logo.jpg'" />
+      <div class="header-title">
+        <span class="main-name">PAN BENDITO</span>
+        <span class="sub-name">Peticiones de Oración</span>
+      </div>
+    </a>
+
+    <div class="header-nav">
+      <a href="index.html" class="nav-link">📺 Directo</a>
+      <a href="biblia.html" class="nav-link">📖 Santa Biblia</a>
+      <a href="peticiones.html" class="nav-link active">🙏 Peticiones</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- HERO BANNER -->
+    <div class="hero-banner">
+      <h1>Muro de Peticiones y Oración</h1>
+      <p class="hero-verse">«La oración eficaz del justo puede mucho» — Santiago 5:16</p>
+      <button class="btn-create-petition" onclick="openPetitionModal()">
+        <span>✍️ Escribir Petición</span>
+      </button>
+    </div>
+
+    <!-- MIS PETICIONES PENDIENTES DE APROBACIÓN -->
+    <div id="my-pending-section">
+      <div class="pending-header">
+        <span>⏳ TUS PETICIONES EN REVISIÓN</span>
+      </div>
+      <div id="pending-cards-container"></div>
+    </div>
+
+    <!-- LISTA PÚBLICA DE PETICIONES -->
+    <div id="petitions-list">
+      <div class="loading-box">
+        <div class="spinner"></div>
+        <p>Cargando peticiones de la congregación...</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL PARA NUEVA PETICIÓN -->
+  <div id="modal-new-petition" class="modal-backdrop">
+    <div class="modal-box">
+      <h2 class="modal-title">Escribir Petición de Oración</h2>
+      <p class="modal-sub">Tu petición será enviada al pastor o administrador para su aprobación antes de publicarse en el muro.</p>
+
+      <div class="form-group" id="name-group">
+        <label class="form-label">Tu Nombre o Apodo:</label>
+        <input type="text" id="pet-author" class="form-input" placeholder="Ej: Manuel García" />
+      </div>
+
+      <div class="anon-box" onclick="toggleAnonCheckbox()">
+        <input type="checkbox" id="pet-anon" onchange="handleAnonChange(event)" />
+        <div>
+          <strong style="color:#fff; font-size:0.9rem;">Publicar de forma Anónima</strong>
+          <p style="color:var(--text-muted); font-size:0.75rem; margin-top:2px;">Tu nombre no se mostrará a nadie en el muro público.</p>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Motivo de oración:</label>
+        <textarea id="pet-text" class="form-textarea" placeholder="Escribe aquí tu petición para que la iglesia ore por ti..."></textarea>
+      </div>
+
+      <div class="notice-box">
+        ℹ️ <strong>Importante:</strong> Las peticiones deben ser aprobadas por el administrador antes de publicarse para mantener el orden y la edificación.
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closePetitionModal()">Cancelar</button>
+        <button class="btn-submit" onclick="submitPetition()">Enviar para Aprobación</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    © Iglesia de Pan Bendito · Iglesia Evangélica
+  </footer>
+
+  <script>
+    const ADMIN_TOPIC = 'https://ntfy.sh/iglesia-pan-bendito-peticiones-admin-v1';
+    const LIKES_TOPIC = 'https://ntfy.sh/iglesia-pan-bendito-peticiones-likes-v1';
+    const FEED_TOPIC  = 'https://ntfy.sh/iglesia-pan-bendito-peticiones-feed-v1';
+
+    let likedSet = new Set(JSON.parse(localStorage.getItem('pb_liked_petitions') || '[]'));
+    let myPending = JSON.parse(sessionStorage.getItem('pb_my_pending_pet') || '[]');
+
+    function saveLiked() {
+      localStorage.setItem('pb_liked_petitions', JSON.stringify([...likedSet]));
+    }
+
+    // Cargar peticiones públicas
+    async function loadPetitions() {
+      const container = document.getElementById('petitions-list');
+      try {
+        const res = await fetch(`./peticiones.json?_t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Error al leer peticiones');
+        const list = await res.json();
+        renderPetitions(list);
+      } catch (err) {
+        container.innerHTML = `
+          <div style="text-align:center; padding: 40px; color: var(--text-muted);">
+            <p>No se pudieron cargar las peticiones en este momento.</p>
+            <button class="btn-cancel" style="margin-top:10px;" onclick="loadPetitions()">Reintentar</button>
+          </div>
+        `;
+      }
+    }
+
+    function renderPetitions(list) {
+      const container = document.getElementById('petitions-list');
+      if (!list || list.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">No hay peticiones publicadas aún. ¡Sé el primero en pedir oración!</div>`;
+        return;
+      }
+
+      let html = '';
+      list.forEach(item => {
+        const isLiked = likedSet.has(item.id);
+        const isAnon = item.isAnonymous === true;
+        html += `
+          <div class="petition-card" id="card-${item.id}">
+            <div class="card-top">
+              <div class="author-info">
+                <div class="avatar-icon ${isAnon ? 'anon' : ''}">
+                  ${isAnon ? '👤' : '🙏'}
+                </div>
+                <div>
+                  <span class="author-name">${escapeHtml(item.author)}</span>
+                  ${isAnon ? '<span class="author-badge">Petición anónima</span>' : ''}
+                </div>
+              </div>
+              <span class="card-date">${escapeHtml(item.date || '')}</span>
+            </div>
+            <div class="card-text">${escapeHtml(item.text)}</div>
+            <div class="card-bottom">
+              <button class="btn-like ${isLiked ? 'liked' : ''}" onclick="toggleLike('${item.id}', this, ${item.likes || 0})">
+                <span>${isLiked ? '❤️' : '🤍'}</span>
+                <span class="like-label">${isLiked ? 'Orando' : 'Orar / Me gusta'}</span>
+                <span class="like-count">(${item.likes || 0})</span>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function renderPending() {
+      const sec = document.getElementById('my-pending-section');
+      const box = document.getElementById('pending-cards-container');
+      if (myPending.length === 0) {
+        sec.style.display = 'none';
+        return;
+      }
+      sec.style.display = 'block';
+      let html = '';
+      myPending.forEach(p => {
+        html += `
+          <div class="petition-card" style="border-color: rgba(224,185,107,0.4); background: rgba(30,45,74,0.6);">
+            <div class="card-top">
+              <span style="font-size: 0.75rem; background: rgba(224,185,107,0.2); color: var(--gold); padding: 3px 8px; border-radius: 6px; font-weight: bold;">
+                ⏳ Pendiente de Aprobación por el Administrador
+              </span>
+              <span class="card-date">${p.date}</span>
+            </div>
+            <div class="card-text" style="margin-bottom:0;">${escapeHtml(p.text)}</div>
+          </div>
+        `;
+      });
+      box.innerHTML = html;
+    }
+
+    function toggleLike(id, btn, baseLikes) {
+      const isLiked = likedSet.has(id);
+      let countEl = btn.querySelector('.like-count');
+      let labelEl = btn.querySelector('.like-label');
+      let iconEl = btn.querySelector('span:first-child');
+
+      if (isLiked) {
+        likedSet.delete(id);
+        baseLikes = Math.max(0, baseLikes - 1);
+        btn.classList.remove('liked');
+        labelEl.textContent = 'Orar / Me gusta';
+        iconEl.textContent = '🤍';
+      } else {
+        likedSet.add(id);
+        baseLikes += 1;
+        btn.classList.add('liked');
+        labelEl.textContent = 'Orando';
+        iconEl.textContent = '❤️';
+
+        // Enviar señal de like
+        fetch(LIKES_TOPIC, { method: 'POST', body: `LIKE:${id}` }).catch(() => {});
+      }
+      countEl.textContent = `(${baseLikes})`;
+      saveLiked();
+    }
+
+    // Modal
+    function openPetitionModal() {
+      const savedName = localStorage.getItem('pb_username') || '';
+      if (savedName) document.getElementById('pet-author').value = savedName;
+      document.getElementById('modal-new-petition').classList.add('show');
+    }
+
+    function closePetitionModal() {
+      document.getElementById('modal-new-petition').classList.remove('show');
+    }
+
+    function toggleAnonCheckbox() {
+      const cb = document.getElementById('pet-anon');
+      cb.checked = !cb.checked;
+      handleAnonChange({ target: cb });
+    }
+
+    function handleAnonChange(e) {
+      e.stopPropagation && e.stopPropagation();
+      const isAnon = document.getElementById('pet-anon').checked;
+      const grp = document.getElementById('name-group');
+      grp.style.opacity = isAnon ? '0.4' : '1';
+    }
+
+    async function submitPetition() {
+      const text = document.getElementById('pet-text').value.trim();
+      const isAnon = document.getElementById('pet-anon').checked;
+      let author = document.getElementById('pet-author').value.trim();
+
+      if (!text) {
+        alert('Por favor escribe tu motivo de oración.');
+        return;
+      }
+
+      if (!isAnon && !author) {
+        author = 'Hermano de la Iglesia';
+      }
+
+      const realAuthor = author || 'Anónimo';
+      const displayedAuthor = isAnon ? 'Anónimo' : realAuthor;
+      const petId = 'pet_' + Date.now();
+      const dateStr = new Date().toLocaleDateString('es-ES') + ' ' + new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+      const payload = {
+        id: petId,
+        author: displayedAuthor,
+        realAuthor: realAuthor,
+        isAnonymous: isAnon,
+        text: text,
+        date: dateStr,
+        likes: 0,
+        status: 'pending'
+      };
+
+      // Guardar nombre
+      if (!isAnon && author) localStorage.setItem('pb_username', author);
+
+      // Guardar en pendientes locales
+      myPending.unshift(payload);
+      sessionStorage.setItem('pb_my_pending_pet', JSON.stringify(myPending));
+      renderPending();
+
+      closePetitionModal();
+      document.getElementById('pet-text').value = '';
+
+      // Notificar al admin via ntfy
+      try {
+        await fetch(ADMIN_TOPIC, {
+          method: 'POST',
+          headers: {
+            'Title': isAnon ? 'Nueva Peticion Anonima' : `Peticion de ${realAuthor}`,
+            'Priority': 'default',
+            'Tags': 'pray,hand',
+          },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {}
+
+      alert('¡Tu petición ha sido enviada con éxito! Será revisada y aprobada por el pastor/administrador antes de publicarse en la lista.');
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      })[m]);
+    }
+
+    renderPending();
+    loadPetitions();
+
+    // SSE para refresco instantáneo cuando el admin apruebe peticiones
+    if (window.EventSource) {
+      try {
+        const sse = new EventSource(`${FEED_TOPIC}/sse`);
+        sse.onmessage = () => loadPetitions();
+      } catch (e) {}
+    }
+  </script>
+</body>
+</html>
