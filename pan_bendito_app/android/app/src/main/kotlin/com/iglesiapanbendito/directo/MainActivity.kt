@@ -75,6 +75,20 @@ class MainActivity: FlutterActivity() {
                     prefs.edit().putString("user_name", name).apply()
                     result.success(true)
                 }
+                "getLikedPetitions" -> {
+                    val prefs = getSharedPreferences("pan_bendito_prefs", Context.MODE_PRIVATE)
+                    val set = prefs.getStringSet("liked_petitions", emptySet())
+                    result.success(set?.toList() ?: emptyList<String>())
+                }
+                "saveLikedPetition" -> {
+                    val id = call.argument<String>("id") ?: ""
+                    val liked = call.argument<Boolean>("liked") ?: true
+                    val prefs = getSharedPreferences("pan_bendito_prefs", Context.MODE_PRIVATE)
+                    val current = prefs.getStringSet("liked_petitions", HashSet())?.toMutableSet() ?: HashSet()
+                    if (liked) current.add(id) else current.remove(id)
+                    prefs.edit().putStringSet("liked_petitions", current).apply()
+                    result.success(true)
+                }
                 "requestNotificationPermission" -> {
                     requestNotificationPermission()
                     result.success(true)
