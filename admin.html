@@ -1186,7 +1186,29 @@
         renderPendingPetitions();
         renderPublishedPetitions();
 
-        fetch(PETICIONES_FEED_TOPIC, { method: 'POST', body: 'UPDATE' }).catch(() => {});
+        // Notificar en tiempo real a la App y a la Web con los datos de la petición y lista completa
+        const broadcastData = {
+          action: 'APPROVED',
+          id: pet.id,
+          petition: {
+            id: pet.id,
+            author: pet.author,
+            isAnonymous: pet.isAnonymous === true,
+            text: pet.text,
+            date: pet.date,
+            likes: pet.likes || 0
+          },
+          petitions: publishedPetitions
+        };
+
+        fetch(PETICIONES_FEED_TOPIC, {
+          method: 'POST',
+          headers: {
+            'Title': 'Peticion Aprobada',
+            'Tags': 'white_check_mark'
+          },
+          body: JSON.stringify(broadcastData)
+        }).catch(() => {});
 
         showStatus('pet-save-status', 'ok', '✅ ¡Petición aprobada y publicada con éxito en la App y la Web!');
         setTimeout(() => {
@@ -1205,6 +1227,11 @@
         dismissedPetitionIds.add(petId);
         saveDismissedIds();
         renderPendingPetitions();
+        fetch(PETICIONES_FEED_TOPIC, {
+          method: 'POST',
+          headers: { 'Title': 'Peticion Rechazada' },
+          body: JSON.stringify({ action: 'REJECTED', id: petId })
+        }).catch(() => {});
       }
     }
 
@@ -1244,7 +1271,11 @@
         if (!res.ok) throw new Error(`GitHub error: ${res.statusText}`);
 
         renderPublishedPetitions();
-        fetch(PETICIONES_FEED_TOPIC, { method: 'POST', body: 'UPDATE' }).catch(() => {});
+        fetch(PETICIONES_FEED_TOPIC, {
+          method: 'POST',
+          headers: { 'Title': 'Peticion Eliminada' },
+          body: JSON.stringify({ action: 'DELETED', id: petId, petitions: publishedPetitions })
+        }).catch(() => {});
         showStatus('pet-save-status', 'ok', '✅ Petición retirada correctamente.');
       } catch(e) {
         showStatus('pet-save-status', 'error', `⚠️ Error: ${e.message}`);
