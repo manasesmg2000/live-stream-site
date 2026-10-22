@@ -24,6 +24,32 @@ class NativeBridge {
     }
   }
 
+  /// Obtiene los IDs de peticiones a las que el usuario ha dado Me Gusta
+  static Future<Set<String>> getLikedPetitions() async {
+    try {
+      final list = await _channel.invokeMethod<List<dynamic>>('getLikedPetitions');
+      if (list != null) {
+        return list.map((e) => e.toString()).toSet();
+      }
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Guarda el estado de Me Gusta para una petición
+  static Future<bool> saveLikedPetition(String id, bool liked) async {
+    try {
+      final success = await _channel.invokeMethod<bool>('saveLikedPetition', {
+        'id': id,
+        'liked': liked,
+      });
+      return success ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Solicita el permiso nativo de notificaciones al sistema
   static Future<void> requestNotificationPermission() async {
     try {
