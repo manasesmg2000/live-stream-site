@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -42,12 +43,16 @@ class PetitionsScreen extends StatefulWidget {
 }
 
 class _PetitionsScreenState extends State<PetitionsScreen> {
+  static const String _peticionesApiUrl =
+      'https://api.github.com/repos/manasesmg2000/live-stream-site/contents/peticiones.json?ref=main';
   static const String _peticionesJsonUrl =
       'https://raw.githubusercontent.com/manasesmg2000/live-stream-site/main/peticiones.json';
   static const String _peticionesFallbackUrl =
       'https://manasesmg2000.github.io/live-stream-site/peticiones.json';
   static const String _adminTopic =
       'https://ntfy.sh/iglesia-pan-bendito-peticiones-admin-v1';
+  static const String _feedTopic =
+      'https://ntfy.sh/iglesia-pan-bendito-peticiones-feed-v1';
   static const String _likesTopic =
       'https://ntfy.sh/iglesia-pan-bendito-peticiones-likes-v1';
 
@@ -57,12 +62,74 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   String _authorName = 'Hermano';
+  Timer? _feedTimer;
 
   @override
   void initState() {
     super.initState();
     _loadUser();
     _fetchPetitions();
+    _startFeedListener();
+  }
+
+  @override
+  void dispose() {
+    _feedTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startFeedListener() {
+    _feedTimer?.cancel();
+    _feedTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      _pollFeedUpdates();
+    });
+  }
+
+  Future<void> _pollFeedUpdates() async {
+    try {
+      final uri = Uri.parse('$_feedTopic/json?poll=1&since=12s');
+      final res = await http.get(uri).timeout(const Duration(seconds: 3));
+      if (res.statusCode == 200 && res.body.trim().isNotEmpty) {
+        final lines = res.body.trim().split('\n');
+        bool needsRefresh = false;
+        for (final line in lines) {
+          if (line.isEmpty) continue;
+          try {
+            final obj = jsonDecode(line);
+            if (obj['event'] == 'message' && obj['message'] != null) {
+              final rawMsg = obj['message'].toString();
+              if (rawMsg == 'UPDATE') {
+                needsRefresh = true;
+              } else {
+                final parsed = jsonDecode(rawMsg);
+                if (parsed is Map<String, dynamic>) {
+                  final action = parsed['action'] ?? parsed['type'];
+                  if (action == 'APPROVED' || action == 'DELETED' || action == 'REJECTED' || action == 'FEED_UPDATE') {
+                    if (parsed['petitions'] is List) {
+                      final list = (parsed['petitions'] as List)
+                          .map((e) => PetitionItem.fromJson(e as Map<String, dynamic>))
+                          .toList();
+                      if (mounted) {
+                        setState(() {
+                          _petitions = list;
+                          _myPendingPetitions.removeWhere((pending) =>
+                              _petitions.any((p) => p.id == pending['id'] || (p.text == pending['text'] && p.date == pending['date'])));
+                        });
+                      }
+                      return;
+                    }
+                    needsRefresh = true;
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+        }
+        if (needsRefresh && mounted) {
+          _fetchPetitions();
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadUser() async {
@@ -80,38 +147,80 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
 
   Future<void> _fetchPetitions() async {
     setState(() {
-      _isLoading = true;
+      _isLoading = _petitions.isEmpty;
       _errorMessage = null;
     });
 
     try {
       final cacheBuster = DateTime.now().millisecondsSinceEpoch;
-      final uri = Uri.parse('$_peticionesJsonUrl?_t=$cacheBuster');
-      var res = await http.get(uri).timeout(const Duration(seconds: 8));
+      List<dynamic>? loadedList;
 
-      if (res.statusCode != 200) {
-        // Fallback
-        res = await http.get(Uri.parse('$_peticionesFallbackUrl?_t=$cacheBuster'))
-            .timeout(const Duration(seconds: 8));
+      // 1. Probar GitHub Contents API (0 caché, directo de Git)
+      try {
+        final ghUri = Uri.parse('$_peticionesApiUrl&_t=$cacheBuster');
+        final ghRes = await http.get(ghUri, headers: {
+          'Accept': 'application/vnd.github.v3+json',
+        }).timeout(const Duration(seconds: 4));
+
+        if (ghRes.statusCode == 200) {
+          final data = jsonDecode(ghRes.body);
+          if (data is Map<String, dynamic> && data['content'] != null) {
+            final rawB64 = (data['content'] as String).replaceAll('\n', '').replaceAll(' ', '');
+            final decodedStr = utf8.decode(base64Decode(rawB64));
+            final parsed = jsonDecode(decodedStr);
+            if (parsed is List) {
+              loadedList = parsed;
+            }
+          }
+        }
+      } catch (_) {}
+
+      // 2. Si falló la API, probar raw.githubusercontent.com
+      if (loadedList == null) {
+        try {
+          final rawUri = Uri.parse('$_peticionesJsonUrl?_t=$cacheBuster');
+          final rawRes = await http.get(rawUri).timeout(const Duration(seconds: 5));
+          if (rawRes.statusCode == 200) {
+            final parsed = jsonDecode(utf8.decode(rawRes.bodyBytes));
+            if (parsed is List) loadedList = parsed;
+          }
+        } catch (_) {}
       }
 
-      if (res.statusCode == 200) {
-        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
-        if (decoded is List) {
-          final list = decoded.map((e) => PetitionItem.fromJson(e as Map<String, dynamic>)).toList();
+      // 3. Fallback GitHub Pages
+      if (loadedList == null) {
+        final fbUri = Uri.parse('$_peticionesFallbackUrl?_t=$cacheBuster');
+        final fbRes = await http.get(fbUri).timeout(const Duration(seconds: 5));
+        if (fbRes.statusCode == 200) {
+          final parsed = jsonDecode(utf8.decode(fbRes.bodyBytes));
+          if (parsed is List) loadedList = parsed;
+        }
+      }
+
+      if (loadedList != null) {
+        final list = loadedList.map((e) => PetitionItem.fromJson(e as Map<String, dynamic>)).toList();
+        if (mounted) {
           setState(() {
             _petitions = list;
             _isLoading = false;
+
+            // Reconciliar pendientes: quitar cualquier petición que ya esté en la lista pública
+            _myPendingPetitions.removeWhere((pending) =>
+                _petitions.any((p) => p.id == pending['id'] || (p.text == pending['text'] && p.date == pending['date'])));
           });
-          return;
         }
+        return;
       }
       throw Exception('Formato de datos no válido');
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'No se pudieron cargar las peticiones. Comprueba tu conexión.';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          if (_petitions.isEmpty) {
+            _errorMessage = 'No se pudieron cargar las peticiones. Comprueba tu conexión.';
+          }
+        });
+      }
     }
   }
 
