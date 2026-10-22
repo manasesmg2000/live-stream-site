@@ -7,6 +7,7 @@ import '../services/presence_service.dart';
 import '../widgets/stream_player.dart';
 import '../widgets/offline_view.dart';
 import 'bible_screen.dart';
+import 'petitions_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final StreamService streamService;
@@ -20,7 +21,64 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _userName;
   bool _showingPreviousVideo = false;
-  int _selectedNavIndex = 0; // 0: Directo, 1: Santa Biblia
+  int _selectedNavIndex = 0; // 0: Directo, 1: Santa Biblia, 2: Peticiones
+  final List<int> _tabHistory = [0];
+  DateTime? _lastBackPressTime;
+
+  void _switchTab(int index) {
+    if (_selectedNavIndex != index) {
+      setState(() {
+        _selectedNavIndex = index;
+        _tabHistory.add(index);
+      });
+    }
+  }
+
+  Future<bool> _handleWillPop() async {
+    // 1. Si está viendo el culto anterior, volver al reproductor principal
+    if (_showingPreviousVideo) {
+      setState(() {
+        _showingPreviousVideo = false;
+      });
+      return false; // No salir
+    }
+
+    // 2. Si navegó por varias pestañas, volver a la pestaña anterior
+    if (_tabHistory.length > 1) {
+      setState(() {
+        _tabHistory.removeLast();
+        _selectedNavIndex = _tabHistory.last;
+      });
+      return false; // No salir
+    }
+
+    // 3. Si no está en Directo (pestaña 0), volver a Directo
+    if (_selectedNavIndex != 0) {
+      setState(() {
+        _selectedNavIndex = 0;
+        _tabHistory.clear();
+        _tabHistory.add(0);
+      });
+      return false; // No salir
+    }
+
+    // 4. Si ya está en la pantalla inicial, requerir doble pulsación para salir (evita cierres accidentales)
+    final now = DateTime.now();
+    if (_lastBackPressTime == null || now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+      _lastBackPressTime = now;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Presiona atrás de nuevo para salir de la app'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFF1E3A5F),
+        ),
+      );
+      return false; // No salir todavía
+    }
+
+    return true; // Permitir salida de la app
+  }
 
   @override
   void initState() {
@@ -182,9 +240,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D1624),
-      appBar: PreferredSize(
+    return WillPopScope(
+      onWillPop: _handleWillPop,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0D1624),
+        appBar: PreferredSize(
         preferredSize: const Size.fromHeight(68),
         child: Container(
           decoration: const BoxDecoration(
@@ -305,11 +365,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               size: 22,
                             ),
                             tooltip: 'Santa Biblia (RV1960 y NTV)',
-                            onPressed: () {
-                              setState(() {
-                                _selectedNavIndex = 1;
-                              });
-                            },
+                            onPressed: () => _switchTab(1),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.volunteer_activism_rounded,
+                              color: _selectedNavIndex == 2
+                                  ? const Color(0xFFE0B96B)
+                                  : const Color(0xFFE8EEF8),
+                              size: 22,
+                            ),
+                            tooltip: 'Peticiones de Oración',
+                            onPressed: () => _switchTab(2),
                           ),
                           IconButton(
                             icon: const Icon(Icons.video_library_rounded,
@@ -332,6 +399,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         children: [
           _buildStreamTab(),
           const BibleScreen(),
+          PetitionsScreen(initialUserName: _userName),
         ],
       ),
       bottomNavigationBar: Container(
@@ -343,11 +411,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedNavIndex,
-          onTap: (index) {
-            setState(() {
-              _selectedNavIndex = index;
-            });
-          },
+          onTap: _switchTab,
           backgroundColor: Colors.transparent,
           elevation: 0,
           selectedItemColor: const Color(0xFFE0B96B),
@@ -364,6 +428,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               icon: Icon(Icons.menu_book_rounded),
               activeIcon: Icon(Icons.menu_book_rounded, color: Color(0xFFE0B96B)),
               label: 'Santa Biblia',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.volunteer_activism_rounded),
+              activeIcon: Icon(Icons.volunteer_activism_rounded, color: Color(0xFFE0B96B)),
+              label: 'Peticiones',
             ),
           ],
         ),
@@ -447,11 +516,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   _openChannel();
                                 }
                               },
-                              onOpenBible: () {
-                                setState(() {
-                                  _selectedNavIndex = 1;
-                                });
-                              },
+                              onOpenBible: () => _switchTab(1),
                             ),
                     ),
                   ),
