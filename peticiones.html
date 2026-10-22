@@ -593,6 +593,33 @@
         }
 
         if (Array.isArray(list)) {
+          // Consultar historial de likes acumulados de ntfy
+          try {
+            const lRes = await fetch(`${LIKES_TOPIC}/json?poll=1&since=all`, { cache: 'no-store' });
+            if (lRes.ok) {
+              const lText = await lRes.text();
+              const lLines = lText.trim().split('\n').filter(Boolean);
+              const lMap = {};
+              for (const lLine of lLines) {
+                try {
+                  const lObj = JSON.parse(lLine);
+                  if (lObj.event === 'message' && lObj.message) {
+                    if (lObj.message.startsWith('LIKE:')) {
+                      const pid = lObj.message.substring(5).trim();
+                      lMap[pid] = (lMap[pid] || 0) + 1;
+                    } else if (lObj.message.startsWith('UNLIKE:')) {
+                      const pid = lObj.message.substring(7).trim();
+                      lMap[pid] = Math.max(0, (lMap[pid] || 0) - 1);
+                    }
+                  }
+                } catch (_) {}
+              }
+              list.forEach(p => {
+                const dyn = lMap[p.id] || 0;
+                if (dyn > (p.likes || 0)) p.likes = dyn;
+              });
+            }
+          } catch (_) {}
           renderPetitions(list);
         } else {
           throw new Error('Error al leer peticiones');
@@ -691,6 +718,7 @@
         btn.classList.remove('liked');
         labelEl.textContent = 'Orar / Me gusta';
         iconEl.textContent = '🤍';
+        fetch(LIKES_TOPIC, { method: 'POST', body: `UNLIKE:${id}` }).catch(() => {});
       } else {
         likedSet.add(id);
         baseLikes += 1;
@@ -811,6 +839,39 @@
             }
           } catch (_) {}
           loadPetitions();
+        };
+      } catch (e) {}
+
+      try {
+        const likesSse = new EventSource(`${LIKES_TOPIC}/sse`);
+        likesSse.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.event === 'message' && data.message) {
+              const msg = data.message;
+              if (msg.startsWith('LIKE:')) {
+                const pid = msg.substring(5).trim();
+                const card = document.getElementById(`card-${pid}`);
+                if (card) {
+                  const cnt = card.querySelector('.like-count');
+                  if (cnt) {
+                    const current = parseInt(cnt.textContent.replace(/\D/g, '') || '0', 10);
+                    cnt.textContent = `(${current + 1})`;
+                  }
+                }
+              } else if (msg.startsWith('UNLIKE:')) {
+                const pid = msg.substring(7).trim();
+                const card = document.getElementById(`card-${pid}`);
+                if (card) {
+                  const cnt = card.querySelector('.like-count');
+                  if (cnt) {
+                    const current = parseInt(cnt.textContent.replace(/\D/g, '') || '0', 10);
+                    cnt.textContent = `(${Math.max(0, current - 1)})`;
+                  }
+                }
+              }
+            }
+          } catch (_) {}
         };
       } catch (e) {}
     }
