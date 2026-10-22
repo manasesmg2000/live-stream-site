@@ -73,6 +73,18 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant PetitionsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialUserName != null && widget.initialUserName!.trim().isNotEmpty) {
+      if (_authorName == 'Hermano' || _authorName.isEmpty) {
+        setState(() {
+          _authorName = widget.initialUserName!.trim();
+        });
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _feedTimer?.cancel();
     super.dispose();
@@ -87,6 +99,7 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
 
   Future<void> _pollFeedUpdates() async {
     try {
+      // 1. Escuchar actualizaciones de peticiones aprobadas / eliminadas
       final uri = Uri.parse('$_feedTopic/json?poll=1&since=12s');
       final res = await http.get(uri).timeout(const Duration(seconds: 3));
       if (res.statusCode == 200 && res.body.trim().isNotEmpty) {
@@ -129,18 +142,55 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
           _fetchPetitions();
         }
       }
+
+      // 2. Escuchar señales de likes en tiempo real
+      final likesUri = Uri.parse('$_likesTopic/json?poll=1&since=8s');
+      final likesRes = await http.get(likesUri).timeout(const Duration(seconds: 3));
+      if (likesRes.statusCode == 200 && likesRes.body.trim().isNotEmpty) {
+        final lines = likesRes.body.trim().split('\n');
+        bool updated = false;
+        for (final line in lines) {
+          if (line.isEmpty) continue;
+          try {
+            final obj = jsonDecode(line);
+            if (obj['event'] == 'message' && obj['message'] != null) {
+              final msg = obj['message'].toString();
+              if (msg.startsWith('LIKE:')) {
+                final pid = msg.substring(5).trim();
+                final idx = _petitions.indexWhere((p) => p.id == pid);
+                if (idx != -1) {
+                  _petitions[idx].likes += 1;
+                  updated = true;
+                }
+              } else if (msg.startsWith('UNLIKE:')) {
+                final pid = msg.substring(7).trim();
+                final idx = _petitions.indexWhere((p) => p.id == pid);
+                if (idx != -1) {
+                  _petitions[idx].likes = (_petitions[idx].likes - 1).clamp(0, 999999);
+                  updated = true;
+                }
+              }
+            }
+          } catch (_) {}
+        }
+        if (updated && mounted) {
+          setState(() {});
+        }
+      }
     } catch (_) {}
   }
 
   Future<void> _loadUser() async {
     final name = await NativeBridge.getUserName();
-    if (name != null && name.trim().isNotEmpty) {
+    final savedLikes = await NativeBridge.getLikedPetitions();
+    if (mounted) {
       setState(() {
-        _authorName = name.trim();
-      });
-    } else if (widget.initialUserName != null && widget.initialUserName!.isNotEmpty) {
-      setState(() {
-        _authorName = widget.initialUserName!;
+        if (name != null && name.trim().isNotEmpty) {
+          _authorName = name.trim();
+        } else if (widget.initialUserName != null && widget.initialUserName!.trim().isNotEmpty) {
+          _authorName = widget.initialUserName!.trim();
+        }
+        _likedIds.addAll(savedLikes);
       });
     }
   }
@@ -199,6 +249,40 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
 
       if (loadedList != null) {
         final list = loadedList.map((e) => PetitionItem.fromJson(e as Map<String, dynamic>)).toList();
+
+        // 4. Agregar recuento de likes acumulados desde ntfy
+        try {
+          final likesRes = await http
+              .get(Uri.parse('$_likesTopic/json?poll=1&since=all'))
+              .timeout(const Duration(seconds: 4));
+          if (likesRes.statusCode == 200 && likesRes.body.trim().isNotEmpty) {
+            final lines = likesRes.body.trim().split('\n');
+            final Map<String, int> likesMap = {};
+            for (final line in lines) {
+              if (line.isEmpty) continue;
+              try {
+                final obj = jsonDecode(line);
+                if (obj['event'] == 'message' && obj['message'] != null) {
+                  final msg = obj['message'].toString();
+                  if (msg.startsWith('LIKE:')) {
+                    final pid = msg.substring(5).trim();
+                    likesMap[pid] = (likesMap[pid] ?? 0) + 1;
+                  } else if (msg.startsWith('UNLIKE:')) {
+                    final pid = msg.substring(7).trim();
+                    likesMap[pid] = ((likesMap[pid] ?? 0) - 1).clamp(0, 999999);
+                  }
+                }
+              } catch (_) {}
+            }
+            for (final p in list) {
+              final dynamicLikes = likesMap[p.id] ?? 0;
+              if (dynamicLikes > p.likes) {
+                p.likes = dynamicLikes;
+              }
+            }
+          }
+        } catch (_) {}
+
         if (mounted) {
           setState(() {
             _petitions = list;
@@ -224,17 +308,29 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
     }
   }
 
-  void _toggleLike(PetitionItem item) {
+  void _toggleLike(PetitionItem item) async {
+    final willLike = !_likedIds.contains(item.id);
     setState(() {
-      if (_likedIds.contains(item.id)) {
-        _likedIds.remove(item.id);
-        item.likes = (item.likes - 1).clamp(0, 999999);
-      } else {
+      if (willLike) {
         _likedIds.add(item.id);
         item.likes += 1;
-        _sendLikeSignal(item.id);
+      } else {
+        _likedIds.remove(item.id);
+        item.likes = (item.likes - 1).clamp(0, 999999);
       }
     });
+
+    // Guardar en SharedPreferences nativo para persistir entre reinicios
+    await NativeBridge.saveLikedPetition(item.id, willLike);
+
+    // Enviar señal a ntfy
+    try {
+      final signal = willLike ? 'LIKE:${item.id}' : 'UNLIKE:${item.id}';
+      http.post(
+        Uri.parse(_likesTopic),
+        body: signal,
+      ).timeout(const Duration(seconds: 3)).catchError((_) => http.Response('', 500));
+    } catch (_) {}
   }
 
   void _sendLikeSignal(String petId) {
@@ -246,8 +342,20 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
     } catch (_) {}
   }
 
-  void _openCreatePetitionDialog() {
+  Future<void> _openCreatePetitionDialog() async {
+    final freshName = await NativeBridge.getUserName();
+    if (freshName != null && freshName.trim().isNotEmpty) {
+      _authorName = freshName.trim();
+    } else if (widget.initialUserName != null && widget.initialUserName!.trim().isNotEmpty) {
+      _authorName = widget.initialUserName!.trim();
+    }
+
+    if (!mounted) return;
+
     final textController = TextEditingController();
+    final nameController = TextEditingController(
+      text: (_authorName != 'Hermano' && _authorName.isNotEmpty) ? _authorName : '',
+    );
     bool isAnonymous = false;
 
     showModalBottomSheet(
@@ -266,156 +374,190 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
               border: Border(top: BorderSide(color: Color(0xFF2E3F6A), width: 1.5)),
             ),
             padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.volunteer_activism_rounded, color: Color(0xFFE0B96B), size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            'Petición de Oración',
+                            style: TextStyle(
+                              color: Color(0xFFE8EEF8),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Color(0xFF8DA2C0)),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Comparte tu motivo para que la congregación se una en oración por ti.',
+                    style: TextStyle(color: Color(0xFF8DA2C0), fontSize: 13, height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Cuadro de texto
+                  TextField(
+                    controller: textController,
+                    maxLines: 4,
+                    autofocus: true,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Escribe aquí tu petición o necesidad...',
+                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                      filled: true,
+                      fillColor: const Color(0xFF0D1624),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF2E3F6A)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFFE0B96B), width: 1.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Campo de Nombre si no es anónimo
+                  if (!isAnonymous) ...[
+                    TextField(
+                      controller: nameController,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      textCapitalization: TextCapitalization.words,
+                      decoration: InputDecoration(
+                        labelText: 'Tu Nombre y Apellidos o Apodo',
+                        labelStyle: const TextStyle(color: Color(0xFFE0B96B), fontSize: 13),
+                        hintText: 'Escribe tu nombre para la petición',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                        prefixIcon: const Icon(Icons.person_rounded, color: Color(0xFFE0B96B), size: 20),
+                        filled: true,
+                        fillColor: const Color(0xFF0D1624),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF2E3F6A)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFE0B96B), width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+
+                  // Switch de Publicar como Anónimo
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D1624),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0x30A0B9DC)),
+                    ),
+                    child: Row(
                       children: [
-                        Icon(Icons.volunteer_activism_rounded, color: Color(0xFFE0B96B), size: 22),
+                        Icon(
+                          isAnonymous ? Icons.visibility_off : Icons.person,
+                          color: isAnonymous ? const Color(0xFFE0B96B) : const Color(0xFF7090C0),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isAnonymous ? 'Publicar como Anónimo' : 'Publicar con tu nombre',
+                                style: const TextStyle(
+                                  color: Color(0xFFE8EEF8),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                isAnonymous
+                                    ? 'Tu nombre no será visible para nadie en la lista pública'
+                                    : 'Aparecerá con tu nombre para que sepan por quién orar',
+                                style: const TextStyle(color: Color(0xFF8DA2C0), fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: isAnonymous,
+                          activeColor: const Color(0xFFE0B96B),
+                          onChanged: (val) {
+                            setModalState(() {
+                              isAnonymous = val;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Aviso de Aprobación del Administrador
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0x207090C0),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0x407090C0)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.security_rounded, color: Color(0xFF7090C0), size: 18),
                         SizedBox(width: 8),
-                        Text(
-                          'Petición de Oración',
-                          style: TextStyle(
-                            color: Color(0xFFE8EEF8),
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Text(
+                            'Por orden y edificación, las peticiones deben ser aprobadas por el pastor o administrador antes de publicarse en la lista pública.',
+                            style: TextStyle(color: Color(0xFFC8D4E8), fontSize: 11, height: 1.3),
                           ),
                         ),
                       ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Color(0xFF8DA2C0)),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Comparte tu motivo para que la congregación se una en oración por ti.',
-                  style: TextStyle(color: Color(0xFF8DA2C0), fontSize: 13, height: 1.4),
-                ),
-                const SizedBox(height: 16),
+                  ),
+                  const SizedBox(height: 16),
 
-                // Cuadro de texto
-                TextField(
-                  controller: textController,
-                  maxLines: 4,
-                  autofocus: true,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: 'Escribe aquí tu petición o necesidad...',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                    filled: true,
-                    fillColor: const Color(0xFF0D1624),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF2E3F6A)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE0B96B), width: 1.5),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Switch de Publicar como Anónimo
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0D1624),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0x30A0B9DC)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isAnonymous ? Icons.visibility_off : Icons.person,
-                        color: isAnonymous ? const Color(0xFFE0B96B) : const Color(0xFF7090C0),
-                        size: 20,
+                  // Botón Enviar
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE0B96B),
+                        foregroundColor: const Color(0xFF0D1624),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              isAnonymous ? 'Publicar como Anónimo' : 'Publicar con tu nombre',
-                              style: const TextStyle(
-                                color: Color(0xFFE8EEF8),
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              isAnonymous
-                                  ? 'Tu nombre no será visible para nadie'
-                                  : 'Aparecerá como: $_authorName',
-                              style: const TextStyle(color: Color(0xFF8DA2C0), fontSize: 11),
-                            ),
-                          ],
-                        ),
+                      onPressed: () => _submitPetition(
+                        ctx,
+                        textController.text.trim(),
+                        nameController.text.trim(),
+                        isAnonymous,
                       ),
-                      Switch(
-                        value: isAnonymous,
-                        activeColor: const Color(0xFFE0B96B),
-                        onChanged: (val) {
-                          setModalState(() {
-                            isAnonymous = val;
-                          });
-                        },
+                      child: const Text(
+                        'Enviar para Aprobación',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Aviso de Aprobación del Administrador
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0x207090C0),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0x407090C0)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.security_rounded, color: Color(0xFF7090C0), size: 18),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Por orden y edificación, las peticiones deben ser aprobadas por el pastor o administrador antes de publicarse en la lista pública.',
-                          style: TextStyle(color: Color(0xFFC8D4E8), fontSize: 11, height: 1.3),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Botón Enviar
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE0B96B),
-                      foregroundColor: const Color(0xFF0D1624),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    onPressed: () => _submitPetition(ctx, textController.text.trim(), isAnonymous),
-                    child: const Text(
-                      'Enviar para Aprobación',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -423,18 +565,32 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
     );
   }
 
-  Future<void> _submitPetition(BuildContext ctx, String text, bool isAnonymous) async {
+  Future<void> _submitPetition(BuildContext ctx, String text, String customAuthor, bool isAnonymous) async {
     if (text.isEmpty) return;
     Navigator.pop(ctx);
 
+    // Determinar nombre real y público
+    String realName = _authorName;
+    if (customAuthor.isNotEmpty) {
+      realName = customAuthor;
+      _authorName = customAuthor;
+      await NativeBridge.saveUserName(customAuthor);
+    } else if (realName.isEmpty || realName == 'Hermano') {
+      final saved = await NativeBridge.getUserName();
+      if (saved != null && saved.isNotEmpty) {
+        realName = saved;
+        _authorName = saved;
+      }
+    }
+
     final petId = 'pet_${DateTime.now().millisecondsSinceEpoch}';
     final dateStr = DateTime.now().toLocal().toString().substring(0, 16);
-    final displayedAuthor = isAnonymous ? 'Anónimo' : _authorName;
+    final displayedAuthor = isAnonymous ? 'Anónimo' : realName;
 
     final pendingData = {
       'id': petId,
       'author': displayedAuthor,
-      'realAuthor': _authorName,
+      'realAuthor': realName,
       'isAnonymous': isAnonymous,
       'text': text,
       'date': dateStr,
@@ -454,7 +610,7 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
         headers: {
           'Title': isAnonymous
               ? 'Nueva Peticion Anonima'
-              : 'Peticion de $_authorName',
+              : 'Peticion de $realName',
           'Priority': 'default',
           'Tags': 'pray,hand',
         },
