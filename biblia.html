@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <title>Santa Biblia — PAN BENDITO (RV1960 y NTV)</title>
+  <style>
+    :root {
+      --navy:      #1a2740;
+      --navy-dark: #0d1624;
+      --navy-mid:  #223054;
+      --navy-light:#2e3f6a;
+      --silver:    #c8d4e8;
+      --silver-bright: #e8eef8;
+      --gold:      #e0b96b;
+      --gold-dark: #b89343;
+      --accent:    #7090c0;
+      --white:     #f0f4fc;
+      --text-muted:#8da2c0;
+      --bg-card:   rgba(26, 39, 64, 0.75);
+      --border-card: rgba(160, 185, 220, 0.2);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: linear-gradient(160deg, #0a111c 0%, var(--navy) 50%, #0a111c 100%);
+      color: var(--white);
+      font-family: 'Segoe UI', Georgia, serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    header {
+      width: 100%;
+      background: linear-gradient(90deg, #0d1624 0%, var(--navy-mid) 50%, #0d1624 100%);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid rgba(160,185,220,0.25);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .header-logo {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(200,212,232,0.4);
+      box-shadow: 0 0 12px rgba(100,140,200,0.3);
+    }
+
+    .header-title .main-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--silver-bright);
+      letter-spacing: 0.5px;
+      display: block;
+      line-height: 1.2;
+    }
+
+    .header-title .sub-name {
+      font-size: 0.72rem;
+      color: var(--gold);
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-header {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(160,185,220,0.3);
+      color: var(--silver-bright);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 20px;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .btn-header:hover {
+      background: rgba(255,255,255,0.14);
+      border-color: rgba(160,185,220,0.6);
+      transform: translateY(-1px);
+    }
+
+    .btn-header.primary {
+      background: linear-gradient(135deg, #c0392b, #e74c3c);
+      border-color: rgba(255,255,255,0.3);
+      color: #fff;
+    }
+
+    /* ── BARRA DE CONTROL BÍBLICO ── */
+    .bible-controls {
+      background: rgba(13, 22, 36, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-card);
+      padding: 12px 20px;
+      position: sticky;
+      top: 71px;
+      z-index: 90;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Selector de traducción (Tabs) */
+    .trans-tabs {
+      display: flex;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border-card);
+      border-radius: 24px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .tab-btn:hover {
+      color: var(--silver-bright);
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, #2b4372, #1f3258);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      border: 1px solid rgba(160,185,220,0.4);
+    }
+
+    .tab-btn.active.gold-tab {
+      background: linear-gradient(135deg, #a8812c, #7d5e1a);
+      color: #fff;
+      border-color: rgba(224, 185, 107, 0.5);
+    }
+
+    /* Botones de Libro y Capítulo */
+    .btn-select {
+      background: var(--navy-mid);
+      border: 1px solid rgba(160,185,220,0.3);
+      color: var(--silver-bright);
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn-select:hover {
+      background: var(--navy-light);
+      border-color: rgba(160,185,220,0.6);
+    }
+
+    /* Navegación Anterior / Siguiente */
+    .btn-nav-chap {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border-card);
+      color: var(--silver-bright);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-nav-chap:hover:not(:disabled) {
+      background: rgba(255,255,255,0.15);
+      border-color: var(--accent);
+      transform: scale(1.05);
+    }
+
+    .btn-nav-chap:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    /* Control de tamaño de texto */
+    .font-ctrls {
+      display: flex;
+      align-items: center;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .btn-font {
+      background: transparent;
+      border: none;
+      color: var(--silver);
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: inherit;
+      font-weight: bold;
+    }
+
+    .btn-font:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+
+    /* ── CONTENIDO PRINCIPAL DE LECTURA ── */
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+    }
+
+    /* Cabecera del capítulo actual */
+    .chapter-heading-card {
+      text-align: center;
+      padding: 24px 20px 20px;
+      margin-bottom: 24px;
+      background: linear-gradient(180deg, rgba(34,48,84,0.4) 0%, rgba(13,22,36,0.6) 100%);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+
+    .chap-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--silver-bright);
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .chap-trans-badge {
+      display: inline-block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 12px;
+      background: rgba(112, 144, 192, 0.15);
+      border: 1px solid rgba(112, 144, 192, 0.4);
+      color: var(--silver);
+    }
+
+    /* Vistas de lectura */
+    .single-view {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 32px 36px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+      line-height: 1.85;
+      font-size: 1.15rem;
+    }
+
+    /* Vista paralela de 2 columnas */
+    .parallel-view {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .parallel-col {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 28px 24px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+      line-height: 1.8;
+      font-size: 1.05rem;
+    }
+
+    .col-header {
+      padding-bottom: 14px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--border-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .col-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--gold);
+    }
+
+    .col-badge {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.08);
+      color: var(--silver);
+    }
+
+    /* Estilos de Versículos y Secciones */
+    .section-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin: 26px 0 14px 0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      display: block;
+      border-left: 3px solid var(--gold);
+      padding-left: 10px;
+    }
+
+    .section-title:first-child {
+      margin-top: 0;
+    }
+
+    .verse-line {
+      display: inline;
+      position: relative;
+      transition: background 0.2s;
+      border-radius: 3px;
+      padding: 1px 2px;
+    }
+
+    .verse-line:hover {
+      background: rgba(112, 144, 192, 0.15);
+      cursor: pointer;
+    }
+
+    .v-num {
+      display: inline-block;
+      font-size: 0.75em;
+      font-weight: 800;
+      color: var(--accent);
+      margin: 0 4px 0 6px;
+      vertical-align: super;
+      user-select: none;
+    }
+
+    .v-text {
+      color: var(--white);
+    }
+
+    /* Botones de navegación inferior */
+    .bottom-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 36px;
+      gap: 16px;
+    }
+
+    .btn-chap-jump {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--navy-mid);
+      border: 1px solid var(--border-card);
+      color: var(--silver-bright);
+      padding: 10px 20px;
+      border-radius: 25px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn-chap-jump:hover:not(:disabled) {
+      background: var(--navy-light);
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .btn-chap-jump:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ── MODAL SELECTOR DE LIBROS Y CAPÍTULOS ── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .modal-backdrop.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-content {
+      background: #111b2b;
+      border: 1px solid rgba(160,185,220,0.3);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 720px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalSlide 0.25s ease-out;
+    }
+
+    @keyframes modalSlide {
+      from { transform: translateY(20px) scale(0.98); }
+      to   { transform: translateY(0) scale(1); }
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      background: #172439;
+      border-bottom: 1px solid var(--border-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .modal-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--silver-bright);
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+    }
+
+    .modal-close:hover {
+      color: #fff;
+    }
+
+    .modal-search-box {
+      padding: 12px 20px;
+      background: rgba(0,0,0,0.25);
+      border-bottom: 1px solid var(--border-card);
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 14px;
+      background: #0d1624;
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 10px rgba(112,144,192,0.3);
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .testament-section {
+      margin-bottom: 24px;
+    }
+
+    .testament-label {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--gold);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: block;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(224,185,107,0.25);
+    }
+
+    .books-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 8px;
+    }
+
+    .book-btn {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(160,185,220,0.18);
+      color: var(--silver-bright);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .book-btn:hover {
+      background: var(--navy-light);
+      border-color: var(--accent);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .book-btn.selected {
+      background: linear-gradient(135deg, #2b4372, #1f3258);
+      border-color: var(--gold);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(224,185,107,0.3);
+    }
+
+    /* Vista de capítulos en modal */
+    .chapters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .chap-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border-card);
+      color: var(--silver-bright);
+      aspect-ratio: 1;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .chap-btn:hover {
+      background: var(--navy-light);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .chap-btn.selected {
+      background: var(--gold);
+      color: #0d1624;
+      font-weight: 800;
+      border-color: #fff;
+    }
+
+    /* Estado de Carga */
+    .loading-box {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--silver);
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid rgba(160,185,220,0.2);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Toast de copiado */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1f3258;
+      border: 1px solid var(--accent);
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 24px;
+      font-size: 0.88rem;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+      z-index: 300;
+      opacity: 0;
+      transition: all 0.3s ease;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Footer */
+    footer {
+      width: 100%;
+      text-align: center;
+      padding: 20px;
+      font-size: 0.78rem;
+      color: rgba(160,185,220,0.4);
+      border-top: 1px solid rgba(160,185,220,0.1);
+      margin-top: auto;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .bible-controls { top: 66px; padding: 10px 14px; }
+      .parallel-view { grid-template-columns: 1fr; gap: 16px; }
+      .single-view { padding: 22px 18px; }
+      .header-title .main-name { font-size: 0.95rem; }
+      .btn-header span { display: none; }
+      .ctrl-group { width: 100%; justify-content: space-between; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <a href="index.html" class="header-left" title="Volver al inicio">
+      <img src="logo.png" alt="Logo PAN BENDITO" class="header-logo" onerror="this.src='logo.jpg'" />
+      <div class="header-title">
+        <span class="main-name">PAN BENDITO</span>
+        <span class="sub-name">Santa Biblia</span>
+      </div>
+    </a>
+
+    <div class="header-right">
+      <a href="index.html" class="btn-header" title="Ver emisión en directo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/>
+        </svg>
+        <span>En Directo</span>
+      </a>
+      <a
+        href="https://www.youtube.com/@pambenditoTV"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn-header"
+        title="Canal de YouTube"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#FF0000">
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/>
+        </svg>
+      </a>
+    </div>
+  </header>
+
+  <!-- BARRA DE CONTROLES BÍBLICOS -->
+  <div class="bible-controls">
+    <!-- Grupo 1: Selector de Libro y Capítulo + Flechas -->
+    <div class="ctrl-group">
+      <button id="btn-open-picker" class="btn-select">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        <span id="current-book-label">S. Juan 3</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+
+      <button id="btn-prev-chap" class="btn-nav-chap" title="Capítulo anterior (Flecha Izquierda)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <button id="btn-next-chap" class="btn-nav-chap" title="Capítulo siguiente (Flecha Derecha)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </button>
+    </div>
+
+    <!-- Grupo 2: Selector de Traducción -->
+    <div class="ctrl-group">
+      <div class="trans-tabs">
+        <button id="tab-rv1960" class="tab-btn active" onclick="switchVersion('RVR1960')">
+          RV1960
+        </button>
+        <button id="tab-ntv" class="tab-btn" onclick="switchVersion('NTV')">
+          NTV
+        </button>
+        <button id="tab-paralelo" class="tab-btn gold-tab" onclick="switchVersion('PARALELO')">
+          📖 Paralelo
+        </button>
+      </div>
+
+      <!-- Ajuste tamaño fuente -->
+      <div class="font-ctrls" title="Tamaño de letra">
+        <button class="btn-font" onclick="changeFontSize(-1)">A−</button>
+        <button class="btn-font" onclick="changeFontSize(1)">A+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN READER -->
+  <main>
+    <div class="chapter-heading-card">
+      <h1 id="chapter-title" class="chap-title">S. Juan 3</h1>
+      <span id="version-badge" class="chap-trans-badge">Reina Valera 1960</span>
+    </div>
+
+    <!-- Contenedor del texto bíblico -->
+    <div id="bible-content">
+      <div class="loading-box">
+        <div class="spinner"></div>
+        <p>Cargando Sagradas Escrituras...</p>
+      </div>
+    </div>
+
+    <!-- Navegación inferior entre capítulos -->
+    <div class="bottom-nav">
+      <button id="btn-prev-bottom" class="btn-chap-jump">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <span>Capítulo anterior</span>
+      </button>
+      <button id="btn-next-bottom" class="btn-chap-jump">
+        <span>Capítulo siguiente</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </button>
+    </div>
+  </main>
+
+  <!-- MODAL DE SELECCIÓN DE LIBRO Y CAPÍTULO -->
+  <div id="book-modal" class="modal-backdrop">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-step-title">Selecciona un Libro</span>
+        <button class="modal-close" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-search-box" id="modal-search-box">
+        <input type="text" id="book-search" class="search-input" placeholder="Buscar libro (ej: Juan, Salmos, Mateo)..." autocomplete="off" />
+      </div>
+      <div class="modal-body" id="modal-body">
+        <!-- Render dinámico de libros o capítulos -->
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICACIÓN -->
+  <div id="toast" class="toast">Versículo copiado al portapapeles</div>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>© Iglesia de Pan Bendito · Reina-Valera 1960® (SBU) & Nueva Traducción Viviente® (Tyndale House Publishers)</p>
+  </footer>
+
+  <script>
+    // ─────────────────────────────────────────────────────────
+    // CANON BÍBLICO (66 LIBROS, CÓDIGOS USFM Y TOTAL CAPÍTULOS)
+    // ─────────────────────────────────────────────────────────
+    const BIBLE_BOOKS = [
+      // Antiguo Testamento
+      { code: "GEN", name: "Génesis", chapters: 50, test: "AT" },
+      { code: "EXO", name: "Éxodo", chapters: 40, test: "AT" },
+      { code: "LEV", name: "Levítico", chapters: 27, test: "AT" },
+      { code: "NUM", name: "Números", chapters: 36, test: "AT" },
+      { code: "DEU", name: "Deuteronomio", chapters: 34, test: "AT" },
+      { code: "JOS", name: "Josué", chapters: 24, test: "AT" },
+      { code: "JDG", name: "Jueces", chapters: 21, test: "AT" },
+      { code: "RUT", name: "Rut", chapters: 4, test: "AT" },
+      { code: "1SA", name: "1 Samuel", chapters: 31, test: "AT" },
+      { code: "2SA", name: "2 Samuel", chapters: 24, test: "AT" },
+      { code: "1KI", name: "1 Reyes", chapters: 22, test: "AT" },
+      { code: "2KI", name: "2 Reyes", chapters: 25, test: "AT" },
+      { code: "1CH", name: "1 Crónicas", chapters: 29, test: "AT" },
+      { code: "2CH", name: "2 Crónicas", chapters: 36, test: "AT" },
+      { code: "EZR", name: "Esdras", chapters: 10, test: "AT" },
+      { code: "NEH", name: "Nehemías", chapters: 13, test: "AT" },
+      { code: "EST", name: "Ester", chapters: 10, test: "AT" },
+      { code: "JOB", name: "Job", chapters: 42, test: "AT" },
+      { code: "PSA", name: "Salmos", chapters: 150, test: "AT" },
+      { code: "PRO", name: "Proverbios", chapters: 31, test: "AT" },
+      { code: "ECC", name: "Eclesiastés", chapters: 12, test: "AT" },
+      { code: "SNG", name: "Cantares", chapters: 8, test: "AT" },
+      { code: "ISA", name: "Isaías", chapters: 66, test: "AT" },
+      { code: "JER", name: "Jeremías", chapters: 52, test: "AT" },
+      { code: "LAM", name: "Lamentaciones", chapters: 5, test: "AT" },
+      { code: "EZK", name: "Ezequiel", chapters: 48, test: "AT" },
+      { code: "DAN", name: "Daniel", chapters: 12, test: "AT" },
+      { code: "HOS", name: "Oseas", chapters: 14, test: "AT" },
+      { code: "JOL", name: "Joel", chapters: 3, test: "AT" },
+      { code: "AMO", name: "Amós", chapters: 9, test: "AT" },
+      { code: "OBA", name: "Abdías", chapters: 1, test: "AT" },
+      { code: "JON", name: "Jonás", chapters: 4, test: "AT" },
+      { code: "MIC", name: "Miqueas", chapters: 7, test: "AT" },
+      { code: "NAM", name: "Nahúm", chapters: 3, test: "AT" },
+      { code: "HAB", name: "Habacuc", chapters: 3, test: "AT" },
+      { code: "ZEP", name: "Sofonías", chapters: 3, test: "AT" },
+      { code: "HAG", name: "Hageo", chapters: 2, test: "AT" },
+      { code: "ZEC", name: "Zacarías", chapters: 14, test: "AT" },
+      { code: "MAL", name: "Malaquías", chapters: 4, test: "AT" },
+      // Nuevo Testamento
+      { code: "MAT", name: "Mateo", chapters: 28, test: "NT" },
+      { code: "MRK", name: "Marcos", chapters: 16, test: "NT" },
+      { code: "LUK", name: "Lucas", chapters: 24, test: "NT" },
+      { code: "JHN", name: "Juan", chapters: 21, test: "NT" },
+      { code: "ACT", name: "Hechos", chapters: 28, test: "NT" },
+      { code: "ROM", name: "Romanos", chapters: 16, test: "NT" },
+      { code: "1CO", name: "1 Corintios", chapters: 16, test: "NT" },
+      { code: "2CO", name: "2 Corintios", chapters: 13, test: "NT" },
+      { code: "GAL", name: "Gálatas", chapters: 6, test: "NT" },
+      { code: "EPH", name: "Efesios", chapters: 6, test: "NT" },
+      { code: "PHP", name: "Filipenses", chapters: 4, test: "NT" },
+      { code: "COL", name: "Colosenses", chapters: 4, test: "NT" },
+      { code: "1TH", name: "1 Tesalonicenses", chapters: 5, test: "NT" },
+      { code: "2TH", name: "2 Tesalonicenses", chapters: 3, test: "NT" },
+      { code: "1TI", name: "1 Timoteo", chapters: 6, test: "NT" },
+      { code: "2TI", name: "2 Timoteo", chapters: 4, test: "NT" },
+      { code: "TIT", name: "Tito", chapters: 3, test: "NT" },
+      { code: "PHM", name: "Filemón", chapters: 1, test: "NT" },
+      { code: "HEB", name: "Hebreos", chapters: 13, test: "NT" },
+      { code: "JAS", name: "Santiago", chapters: 5, test: "NT" },
+      { code: "1PE", name: "1 Pedro", chapters: 5, test: "NT" },
+      { code: "2PE", name: "2 Pedro", chapters: 3, test: "NT" },
+      { code: "1JN", name: "1 Juan", chapters: 5, test: "NT" },
+      { code: "2JN", name: "2 Juan", chapters: 1, test: "NT" },
+      { code: "3JN", name: "3 Juan", chapters: 1, test: "NT" },
+      { code: "JUD", name: "Judas", chapters: 1, test: "NT" },
+      { code: "REV", name: "Apocalipsis", chapters: 22, test: "NT" }
+    ];
+
+    const VERSIONS = {
+      RVR1960: {
+        id: "RVR1960_vid_149",
+        name: "Reina Valera 1960",
+        short: "RV1960"
+      },
+      NTV: {
+        id: "NTV_vid_127",
+        name: "Nueva Traducción Viviente",
+        short: "NTV"
+      }
+    };
+
+    // ─────────────────────────────────────────────────────────
+    // ESTADO DE LA APLICACIÓN
+    // ─────────────────────────────────────────────────────────
+    let currentBookCode = "JHN"; // S. Juan por defecto
+    let currentChapter  = 3;     // Capítulo 3
+    let currentVersion  = "RVR1960"; // "RVR1960", "NTV", o "PARALELO"
+    let currentFontSize = parseInt(localStorage.getItem('pb_bible_font') || "18");
+    const chapterCache  = new Map();
+
+    // ─────────────────────────────────────────────────────────
+    // FUNCIONES DE CARGA Y API
+    // ─────────────────────────────────────────────────────────
+    async function fetchChapter(versionKey, bookCode, chapter) {
+      const vid = VERSIONS[versionKey].id;
+      const key = `${vid}/${bookCode}.${chapter}`;
+      if (chapterCache.has(key)) return chapterCache.get(key);
+
+      const url = `https://mrk214.github.io/snapshots-by-chapter/es___spa___spa/${vid}/${bookCode}.${chapter}.json`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        const data = await res.json();
+        chapterCache.set(key, data);
+        return data;
+      } catch (err) {
+        console.error("Error al cargar capítulo:", err);
+        return null;
+      }
+    }
+
+    function getBook(code) {
+      return BIBLE_BOOKS.find(b => b.code === code) || BIBLE_BOOKS[0];
+    }
+
+    function getBookIndex(code) {
+      return BIBLE_BOOKS.findIndex(b => b.code === code);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // RENDERIZADO DEL CAPÍTULO
+    // ─────────────────────────────────────────────────────────
+    async function loadCurrentChapter() {
+      const book = getBook(currentBookCode);
+      const bookTitle = `${book.name} ${currentChapter}`;
+      
+      document.getElementById('current-book-label').textContent = bookTitle;
+      document.getElementById('chapter-title').textContent = bookTitle;
+      document.title = `${bookTitle} (${currentVersion}) — PAN BENDITO`;
+
+      const badge = document.getElementById('version-badge');
+      if (currentVersion === 'PARALELO') {
+        badge.textContent = "Reina Valera 1960 & Nueva Traducción Viviente (Paralelo)";
+      } else {
+        badge.textContent = VERSIONS[currentVersion].name;
+      }
+
+      // Deshabilitar/Habilitar botones de navegación
+      updateNavButtons();
+
+      const container = document.getElementById('bible-content');
+      container.innerHTML = `
+        <div class="loading-box">
+          <div class="spinner"></div>
+          <p>Cargando ${bookTitle} (${currentVersion === 'PARALELO' ? 'RV1960 + NTV' : currentVersion})...</p>
+        </div>
+      `;
+
+      if (currentVersion === 'PARALELO') {
+        // Cargar ambas versiones en paralelo
+        const [rvData, ntvData] = await Promise.all([
+          fetchChapter('RVR1960', currentBookCode, currentChapter),
+          fetchChapter('NTV', currentBookCode, currentChapter)
+        ]);
+
+        if (!rvData || !ntvData) {
+          container.innerHTML = `
+            <div class="single-view" style="text-align:center; padding: 40px 20px;">
+              <p style="color: #e74c3c; font-size: 1.1rem; margin-bottom: 12px;">⚠️ No se pudo cargar el capítulo en este momento.</p>
+              <button class="btn-select" onclick="loadCurrentChapter()">Reintentar</button>
+            </div>
+          `;
+          return;
+        }
+
+        renderParallelView(rvData, ntvData);
+      } else {
+        // Cargar versión individual
+        const data = await fetchChapter(currentVersion, currentBookCode, currentChapter);
+        if (!data) {
+          container.innerHTML = `
+            <div class="single-view" style="text-align:center; padding: 40px 20px;">
+              <p style="color: #e74c3c; font-size: 1.1rem; margin-bottom: 12px;">⚠️ No se pudo cargar el capítulo en este momento.</p>
+              <button class="btn-select" onclick="loadCurrentChapter()">Reintentar</button>
+            </div>
+          `;
+          return;
+        }
+        renderSingleView(data);
+      }
+    }
+
+    function renderSingleView(data) {
+      const container = document.getElementById('bible-content');
+      let html = `<div class="single-view" style="font-size: ${currentFontSize}px;">`;
+
+      const items = data.chapter?.items || [];
+      items.forEach(item => {
+        if (item.type === 'heading1' || item.type === 'heading2') {
+          const title = item.lines ? item.lines.join(' ') : '';
+          html += `<div class="section-title">${escapeHtml(title)}</div>`;
+        } else if (item.type === 'verse') {
+          const vNum = item.verse_numbers ? item.verse_numbers.join('-') : '';
+          const text = item.lines ? item.lines.join(' ') : '';
+          const fullRef = `${getBook(currentBookCode).name} ${currentChapter}:${vNum} (${currentVersion})`;
+          html += `
+            <span class="verse-line" onclick="copyVerse('${escapeAttr(fullRef)}', '${escapeAttr(text)}')" title="Clic para copiar">
+              <span class="v-num">${vNum}</span>
+              <span class="v-text">${escapeHtml(text)} </span>
+            </span>
+          `;
+        }
+      });
+
+      html += `</div>`;
+      container.innerHTML = html;
+    }
+
+    function renderParallelView(rvData, ntvData) {
+      const container = document.getElementById('bible-content');
+      
+      const renderColContent = (data, verName) => {
+        let colHtml = '';
+        const items = data.chapter?.items || [];
+        items.forEach(item => {
+          if (item.type === 'heading1' || item.type === 'heading2') {
+            const title = item.lines ? item.lines.join(' ') : '';
+            colHtml += `<div class="section-title">${escapeHtml(title)}</div>`;
+          } else if (item.type === 'verse') {
+            const vNum = item.verse_numbers ? item.verse_numbers.join('-') : '';
+            const text = item.lines ? item.lines.join(' ') : '';
+            const fullRef = `${getBook(currentBookCode).name} ${currentChapter}:${vNum} (${verName})`;
+            colHtml += `
+              <span class="verse-line" onclick="copyVerse('${escapeAttr(fullRef)}', '${escapeAttr(text)}')" title="Clic para copiar">
+                <span class="v-num">${vNum}</span>
+                <span class="v-text">${escapeHtml(text)} </span>
+              </span>
+            `;
+          }
+        });
+        return colHtml;
+      };
+
+      const html = `
+        <div class="parallel-view" style="font-size: ${currentFontSize}px;">
+          <div class="parallel-col">
+            <div class="col-header">
+              <span class="col-title">Reina Valera 1960</span>
+              <span class="col-badge">RVR1960</span>
+            </div>
+            ${renderColContent(rvData, 'RV1960')}
+          </div>
+          <div class="parallel-col">
+            <div class="col-header">
+              <span class="col-title">Nueva Traducción Viviente</span>
+              <span class="col-badge">NTV</span>
+            </div>
+            ${renderColContent(ntvData, 'NTV')}
+          </div>
+        </div>
+      `;
+
+      container.innerHTML = html;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // NAVEGACIÓN CAPÍTULO ANTERIOR / SIGUIENTE
+    // ─────────────────────────────────────────────────────────
+    function canGoPrev() {
+      const bIdx = getBookIndex(currentBookCode);
+      return !(bIdx === 0 && currentChapter === 1);
+    }
+
+    function canGoNext() {
+      const bIdx = getBookIndex(currentBookCode);
+      const book = BIBLE_BOOKS[bIdx];
+      return !(bIdx === BIBLE_BOOKS.length - 1 && currentChapter === book.chapters);
+    }
+
+    function updateNavButtons() {
+      const prevDisabled = !canGoPrev();
+      const nextDisabled = !canGoNext();
+
+      document.getElementById('btn-prev-chap').disabled = prevDisabled;
+      document.getElementById('btn-next-chap').disabled = nextDisabled;
+      document.getElementById('btn-prev-bottom').disabled = prevDisabled;
+      document.getElementById('btn-next-bottom').disabled = nextDisabled;
+    }
+
+    function goPrevChapter() {
+      if (currentChapter > 1) {
+        currentChapter--;
+      } else {
+        const bIdx = getBookIndex(currentBookCode);
+        if (bIdx > 0) {
+          const prevBook = BIBLE_BOOKS[bIdx - 1];
+          currentBookCode = prevBook.code;
+          currentChapter = prevBook.chapters;
+        }
+      }
+      loadCurrentChapter();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goNextChapter() {
+      const book = getBook(currentBookCode);
+      if (currentChapter < book.chapters) {
+        currentChapter++;
+      } else {
+        const bIdx = getBookIndex(currentBookCode);
+        if (bIdx < BIBLE_BOOKS.length - 1) {
+          const nextBook = BIBLE_BOOKS[bIdx + 1];
+          currentBookCode = nextBook.code;
+          currentChapter = 1;
+        }
+      }
+      loadCurrentChapter();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // CAMBIO DE VERSIÓN Y TAMAÑO DE TEXTO
+    // ─────────────────────────────────────────────────────────
+    function switchVersion(ver) {
+      currentVersion = ver;
+      document.getElementById('tab-rv1960').classList.toggle('active', ver === 'RVR1960');
+      document.getElementById('tab-ntv').classList.toggle('active', ver === 'NTV');
+      document.getElementById('tab-paralelo').classList.toggle('active', ver === 'PARALELO');
+      loadCurrentChapter();
+    }
+
+    function changeFontSize(delta) {
+      currentFontSize = Math.min(28, Math.max(14, currentFontSize + delta));
+      localStorage.setItem('pb_bible_font', currentFontSize);
+      const single = document.querySelector('.single-view');
+      const parallel = document.querySelector('.parallel-view');
+      if (single) single.style.fontSize = `${currentFontSize}px`;
+      if (parallel) parallel.style.fontSize = `${currentFontSize}px`;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // MODAL DE SELECCIÓN DE LIBRO Y CAPÍTULO
+    // ─────────────────────────────────────────────────────────
+    let modalSelectedBook = null;
+
+    function openPickerModal() {
+      modalSelectedBook = currentBookCode;
+      renderModalBooks();
+      document.getElementById('book-modal').classList.add('show');
+      document.getElementById('book-search').focus();
+    }
+
+    function closePickerModal() {
+      document.getElementById('book-modal').classList.remove('show');
+    }
+
+    function renderModalBooks(filterText = '') {
+      document.getElementById('modal-step-title').textContent = "Selecciona un Libro";
+      document.getElementById('modal-search-box').style.display = 'block';
+      const body = document.getElementById('modal-body');
+
+      const filter = filterText.toLowerCase().trim();
+      const otBooks = BIBLE_BOOKS.filter(b => b.test === 'AT' && (b.name.toLowerCase().includes(filter) || b.code.toLowerCase().includes(filter)));
+      const ntBooks = BIBLE_BOOKS.filter(b => b.test === 'NT' && (b.name.toLowerCase().includes(filter) || b.code.toLowerCase().includes(filter)));
+
+      let html = '';
+
+      if (otBooks.length > 0) {
+        html += `<div class="testament-section">
+          <span class="testament-label">Antiguo Testamento (${otBooks.length})</span>
+          <div class="books-grid">
+            ${otBooks.map(b => `
+              <button class="book-btn ${b.code === currentBookCode ? 'selected' : ''}" onclick="selectModalBook('${b.code}')">
+                ${b.name}
+              </button>
+            `).join('')}
+          </div>
+        </div>`;
+      }
+
+      if (ntBooks.length > 0) {
+        html += `<div class="testament-section">
+          <span class="testament-label">Nuevo Testamento (${ntBooks.length})</span>
+          <div class="books-grid">
+            ${ntBooks.map(b => `
+              <button class="book-btn ${b.code === currentBookCode ? 'selected' : ''}" onclick="selectModalBook('${b.code}')">
+                ${b.name}
+              </button>
+            `).join('')}
+          </div>
+        </div>`;
+      }
+
+      if (otBooks.length === 0 && ntBooks.length === 0) {
+        html = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">No se encontraron libros para "${escapeHtml(filterText)}"</div>`;
+      }
+
+      body.innerHTML = html;
+    }
+
+    function selectModalBook(bookCode) {
+      modalSelectedBook = bookCode;
+      const book = getBook(bookCode);
+      
+      document.getElementById('modal-step-title').innerHTML = `
+        <span style="color:var(--gold); cursor:pointer;" onclick="renderModalBooks()">&larr; Libros</span>
+        &nbsp;/&nbsp; ${book.name}: Elige Capítulo
+      `;
+      document.getElementById('modal-search-box').style.display = 'none';
+
+      const body = document.getElementById('modal-body');
+      let html = `<div class="chapters-grid">`;
+      for (let c = 1; c <= book.chapters; c++) {
+        const isCurrent = (bookCode === currentBookCode && c === currentChapter);
+        html += `
+          <button class="chap-btn ${isCurrent ? 'selected' : ''}" onclick="pickChapter('${bookCode}', ${c})">
+            ${c}
+          </button>
+        `;
+      }
+      html += `</div>`;
+      body.innerHTML = html;
+    }
+
+    function pickChapter(bookCode, chapNum) {
+      currentBookCode = bookCode;
+      currentChapter = chapNum;
+      closePickerModal();
+      loadCurrentChapter();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // COPIAR VERSÍCULO AL PORTAPAPELES
+    // ─────────────────────────────────────────────────────────
+    function copyVerse(ref, text) {
+      const copyText = `«${text.trim()}» — ${ref}`;
+      navigator.clipboard.writeText(copyText).then(() => {
+        showToast(`Versículo copiado: ${ref}`);
+      }).catch(() => {
+        showToast(`Copiado: ${ref}`);
+      });
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      })[m]);
+    }
+
+    function escapeAttr(str) {
+      return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // EVENT LISTENERS
+    // ─────────────────────────────────────────────────────────
+    document.getElementById('btn-open-picker').onclick = openPickerModal;
+    document.getElementById('modal-close-btn').onclick = closePickerModal;
+    document.getElementById('book-modal').onclick = (e) => {
+      if (e.target.id === 'book-modal') closePickerModal();
+    };
+
+    document.getElementById('book-search').oninput = (e) => {
+      renderModalBooks(e.target.value);
+    };
+
+    document.getElementById('btn-prev-chap').onclick = goPrevChapter;
+    document.getElementById('btn-next-chap').onclick = goNextChapter;
+    document.getElementById('btn-prev-bottom').onclick = goPrevChapter;
+    document.getElementById('btn-next-bottom').onclick = goNextChapter;
+
+    // Teclado: Flechas izquierda / derecha para cambiar capítulo
+    window.addEventListener('keydown', (e) => {
+      if (document.getElementById('book-modal').classList.contains('show')) {
+        if (e.key === 'Escape') closePickerModal();
+        return;
+      }
+      if (e.key === 'ArrowLeft' && canGoPrev()) goPrevChapter();
+      if (e.key === 'ArrowRight' && canGoNext()) goNextChapter();
+    });
+
+    // Iniciar con Juan 3
+    loadCurrentChapter();
+  </script>
+</body>
+</html>
