@@ -579,7 +579,8 @@
             const data = await ghRes.json();
             if (data && data.content) {
               const decoded = decodeURIComponent(escape(atob(data.content.replace(/\s/g, ''))));
-              list = JSON.parse(decoded);
+              const clean = decoded.replace(/^\uFEFF/, '').trim();
+              list = JSON.parse(clean);
             }
           }
         } catch (_) {}
