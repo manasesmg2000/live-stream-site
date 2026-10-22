@@ -6,6 +6,7 @@ import '../services/native_bridge.dart';
 import '../services/presence_service.dart';
 import '../widgets/stream_player.dart';
 import '../widgets/offline_view.dart';
+import 'bible_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final StreamService streamService;
@@ -19,6 +20,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _userName;
   bool _showingPreviousVideo = false;
+  int _selectedNavIndex = 0; // 0: Directo, 1: Santa Biblia
 
   @override
   void initState() {
@@ -266,7 +268,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ],
                   ),
 
-                  // Lado derecho: Badge Directo + Botón Canal
+                  // Lado derecho: Badge Directo + Botón Biblia + Botón Canal
                   StreamBuilder<StreamState>(
                     stream: widget.streamService.stateStream,
                     initialData: widget.streamService.currentState,
@@ -292,8 +294,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                           ],
+                          IconButton(
+                            icon: Icon(
+                              Icons.menu_book_rounded,
+                              color: _selectedNavIndex == 1
+                                  ? const Color(0xFFE0B96B)
+                                  : const Color(0xFFE8EEF8),
+                              size: 22,
+                            ),
+                            tooltip: 'Santa Biblia (RV1960 y NTV)',
+                            onPressed: () {
+                              setState(() {
+                                _selectedNavIndex = 1;
+                              });
+                            },
+                          ),
                           IconButton(
                             icon: const Icon(Icons.video_library_rounded,
                                 color: Color(0xFFE8EEF8), size: 22),
@@ -310,102 +327,151 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
       ),
-      body: RefreshIndicator(
-        color: const Color(0xFF7090C0),
-        backgroundColor: const Color(0xFF141F33),
-        onRefresh: () => widget.streamService.fetchState(),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF0D1624), Color(0xFF1A2740), Color(0xFF0D1624)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+      body: IndexedStack(
+        index: _selectedNavIndex,
+        children: [
+          _buildStreamTab(),
+          const BibleScreen(),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF111B2B),
+          border: Border(
+            top: BorderSide(color: Color(0x30A0B9DC), width: 1),
+          ),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _selectedNavIndex,
+          onTap: (index) {
+            setState(() {
+              _selectedNavIndex = index;
+            });
+          },
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          selectedItemColor: const Color(0xFFE0B96B),
+          unselectedItemColor: const Color(0xFF7090C0),
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          unselectedLabelStyle: const TextStyle(fontSize: 11),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.live_tv_rounded),
+              activeIcon: Icon(Icons.live_tv_rounded, color: Color(0xFFE0B96B)),
+              label: 'Directo',
             ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.menu_book_rounded),
+              activeIcon: Icon(Icons.menu_book_rounded, color: Color(0xFFE0B96B)),
+              label: 'Santa Biblia',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStreamTab() {
+    return RefreshIndicator(
+      color: const Color(0xFF7090C0),
+      backgroundColor: const Color(0xFF141F33),
+      onRefresh: () => widget.streamService.fetchState(),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0D1624), Color(0xFF1A2740), Color(0xFF0D1624)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          child: StreamBuilder<StreamState>(
-            stream: widget.streamService.stateStream,
-            initialData: widget.streamService.currentState,
-            builder: (context, snapshot) {
-              final state = snapshot.data ?? StreamState.offline();
+        ),
+        child: StreamBuilder<StreamState>(
+          stream: widget.streamService.stateStream,
+          initialData: widget.streamService.currentState,
+          builder: (context, snapshot) {
+            final state = snapshot.data ?? StreamState.offline();
 
-              // Si está en directo, mostramos el directo; si no, o si eligió ver el culto anterior:
-              final bool showPlayer = (state.isLive && state.videoId.isNotEmpty && !_showingPreviousVideo) ||
-                  (_showingPreviousVideo && state.lastVideoId.isNotEmpty);
+            // Si está en directo, mostramos el directo; si no, o si eligió ver el culto anterior:
+            final bool showPlayer = (state.isLive && state.videoId.isNotEmpty && !_showingPreviousVideo) ||
+                (_showingPreviousVideo && state.lastVideoId.isNotEmpty);
 
-              final String currentPlayId = _showingPreviousVideo
-                  ? state.lastVideoId
-                  : state.videoId;
+            final String currentPlayId = _showingPreviousVideo
+                ? state.lastVideoId
+                : state.videoId;
 
-              return Column(
-                children: [
-                  if (_showingPreviousVideo)
-                    Container(
-                      color: const Color(0xFF1E3A5F),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.history, color: Color(0xFFE8EEF8), size: 18),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'Viendo: Culto anterior',
-                              style: TextStyle(color: Color(0xFFE8EEF8), fontSize: 13, fontWeight: FontWeight.bold),
-                            ),
+            return Column(
+              children: [
+                if (_showingPreviousVideo)
+                  Container(
+                    color: const Color(0xFF1E3A5F),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.history, color: Color(0xFFE8EEF8), size: 18),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Viendo: Culto anterior',
+                            style: TextStyle(color: Color(0xFFE8EEF8), fontSize: 13, fontWeight: FontWeight.bold),
                           ),
-                          TextButton(
-                            style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF90CAF9),
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _showingPreviousVideo = false;
-                              });
-                            },
-                            child: const Text('Volver al inicio'),
+                        ),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF90CAF9),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
                           ),
-                        ],
-                      ),
-                    ),
-
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Center(
-                        child: showPlayer
-                            ? StreamPlayer(videoId: currentPlayId)
-                            : OfflineView(
-                                lastVideoId: state.lastVideoId,
-                                onWatchPrevious: () {
-                                  if (state.lastVideoId.isNotEmpty) {
-                                    setState(() {
-                                      _showingPreviousVideo = true;
-                                    });
-                                  } else {
-                                    _openChannel();
-                                  }
-                                },
-                              ),
-                      ),
+                          onPressed: () {
+                            setState(() {
+                              _showingPreviousVideo = false;
+                            });
+                          },
+                          child: const Text('Volver al inicio'),
+                        ),
+                      ],
                     ),
                   ),
 
-                  // Footer
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Text(
-                      '© Iglesia de Pan Bendito · Iglesia Evangélica',
-                      style: TextStyle(
-                        color: const Color(0xFFA0B9DC).withOpacity(0.35),
-                        fontSize: 11,
-                        letterSpacing: 0.4,
-                      ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Center(
+                      child: showPlayer
+                          ? StreamPlayer(videoId: currentPlayId)
+                          : OfflineView(
+                              lastVideoId: state.lastVideoId,
+                              onWatchPrevious: () {
+                                if (state.lastVideoId.isNotEmpty) {
+                                  setState(() {
+                                    _showingPreviousVideo = true;
+                                  });
+                                } else {
+                                  _openChannel();
+                                }
+                              },
+                              onOpenBible: () {
+                                setState(() {
+                                  _selectedNavIndex = 1;
+                                });
+                              },
+                            ),
                     ),
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+
+                // Footer
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    '© Iglesia de Pan Bendito · Iglesia Evangélica',
+                    style: TextStyle(
+                      color: const Color(0xFFA0B9DC).withOpacity(0.35),
+                      fontSize: 11,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
