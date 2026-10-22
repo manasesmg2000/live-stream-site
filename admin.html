@@ -538,16 +538,37 @@
     const CONFIG_PATH = 'config.json';
     let currentConfigCache = { live: false, videoId: '', lastVideoId: '' };
 
+    function cleanBase64Json(base64Str, defaultVal = null) {
+      if (!base64Str) return defaultVal;
+      try {
+        const raw = decodeURIComponent(escape(atob(base64Str.replace(/\s/g, ''))));
+        const clean = raw.replace(/^\uFEFF/, '').trim();
+        return JSON.parse(clean);
+      } catch (e) {
+        console.warn('cleanBase64Json parse error:', e);
+        return defaultVal;
+      }
+    }
+
+    function getAuthHeader(token) {
+      const t = (token || '').trim();
+      if (!t) return {};
+      return { 'Authorization': t.startsWith('Bearer ') || t.startsWith('token ') ? t : `token ${t}` };
+    }
+
     async function getFileInfo(s, path = CONFIG_PATH) {
       const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${path}?ref=${encodeURIComponent(s.branch)}&_t=${Date.now()}`;
       const res = await fetch(url, {
         headers: {
-          'Authorization': `token ${s.token}`,
+          ...getAuthHeader(s.token),
           'Accept': 'application/vnd.github.v3+json',
         },
         cache: 'no-store',
       });
-      if (!res.ok) throw new Error(`GitHub API error ${res.status}: ${await res.text()}`);
+      if (!res.ok) {
+        const errDetail = await res.text();
+        throw new Error(`GitHub API ${res.status}: ${errDetail}`);
+      }
       return await res.json();
     }
 
@@ -568,7 +589,7 @@
       const res = await fetch(url, {
         method: 'PUT',
         headers: {
-          'Authorization': `token ${s.token}`,
+          ...getAuthHeader(s.token),
           'Accept': 'application/vnd.github.v3+json',
           'Content-Type': 'application/json',
         },
@@ -1140,17 +1161,18 @@
       const s = getSettings();
       const container = document.getElementById('published-petitions-container');
       try {
-        let list = [];
+        let list = null;
         if (s.user && s.repo && s.token) {
           try {
             const fileInfo = await getFileInfo(s, PETICIONES_PATH);
-            const contentStr = decodeURIComponent(escape(atob(fileInfo.content.replace(/\s/g, ''))));
-            list = JSON.parse(contentStr);
+            if (fileInfo && fileInfo.content) {
+              list = cleanBase64Json(fileInfo.content, null);
+            }
           } catch(e) {
-            const res = await fetch(`./peticiones.json?_t=${Date.now()}`, { cache: 'no-store' });
-            if (res.ok) list = await res.json();
+            console.warn('loadPublishedPetitionsAdmin API fallback to local:', e);
           }
-        } else {
+        }
+        if (!list || !Array.isArray(list)) {
           const res = await fetch(`./peticiones.json?_t=${Date.now()}`, { cache: 'no-store' });
           if (res.ok) list = await res.json();
         }
@@ -1158,7 +1180,7 @@
         publishedPetitions = Array.isArray(list) ? list : [];
         renderPublishedPetitions();
       } catch(e) {
-        container.innerHTML = `<div style="text-align:center; color:#e74c3c; padding:20px;">Error al cargar peticiones: ${e.message}</div>`;
+        if (container) container.innerHTML = `<div style="text-align:center; color:#e74c3c; padding:20px;">Error al cargar peticiones: ${e.message}</div>`;
       }
     }
 
@@ -1196,77 +1218,38 @@
       const pet = pendingPetitions[idx];
 
       const s = getSettings();
-      if (!s.user || !s.repo || !s.token) {
-        alert('Configura primero el usuario, repositorio y token de GitHub en la pestaña Ajustes.');
-        return;
+
+      // 1. Quitar de pendientes y registrar en publicadas localmente
+      pendingPetitions.splice(idx, 1);
+      dismissedPetitionIds.add(pet.id);
+      saveDismissedIds();
+
+      const approvedPet = {
+        id: pet.id,
+        author: pet.author,
+        isAnonymous: pet.isAnonymous === true,
+        text: pet.text,
+        date: pet.date,
+        likes: pet.likes || 0
+      };
+
+      if (!publishedPetitions.some(p => p.id === approvedPet.id)) {
+        publishedPetitions.unshift(approvedPet);
       }
 
-      showStatus('pet-save-status', 'pending', '⏳ Guardando petición aprobada en GitHub...');
+      renderPendingPetitions();
+      renderPublishedPetitions();
+
+      // 2. Transmitir inmediatamente en vivo a la App y la Web
+      const broadcastData = {
+        action: 'APPROVED',
+        id: pet.id,
+        petition: approvedPet,
+        petitions: publishedPetitions
+      };
+      const broadcastStr = JSON.stringify(broadcastData);
 
       try {
-        let sha = null;
-        try {
-          const fileInfo = await getFileInfo(s, PETICIONES_PATH);
-          sha = fileInfo.sha;
-          const contentStr = decodeURIComponent(escape(atob(fileInfo.content.replace(/\s/g, ''))));
-          publishedPetitions = JSON.parse(contentStr);
-        } catch(e) {
-          sha = null;
-        }
-
-        publishedPetitions.unshift({
-          id: pet.id,
-          author: pet.author,
-          isAnonymous: pet.isAnonymous === true,
-          text: pet.text,
-          date: pet.date,
-          likes: pet.likes || 0
-        });
-
-        const newJsonStr = JSON.stringify(publishedPetitions, null, 2) + '\n';
-        const contentB64 = btoa(unescape(encodeURIComponent(newJsonStr)));
-
-        const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${PETICIONES_PATH}`;
-        const res = await fetch(url, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `token ${s.token}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            message: `🙏 Publicar petición de oración: ${pet.author}`,
-            content: contentB64,
-            sha: sha || undefined,
-            branch: s.branch,
-          }),
-        });
-
-        if (!res.ok) throw new Error(`GitHub error: ${res.statusText}`);
-
-        pendingPetitions.splice(idx, 1);
-        dismissedPetitionIds.add(pet.id);
-        saveDismissedIds();
-
-        renderPendingPetitions();
-        renderPublishedPetitions();
-
-        // Notificar en tiempo real a la App y a la Web con los datos de la petición y lista completa
-        const broadcastData = {
-          action: 'APPROVED',
-          id: pet.id,
-          petition: {
-            id: pet.id,
-            author: pet.author,
-            isAnonymous: pet.isAnonymous === true,
-            text: pet.text,
-            date: pet.date,
-            likes: pet.likes || 0
-          },
-          petitions: publishedPetitions
-        };
-
-        const broadcastStr = JSON.stringify(broadcastData);
         fetch(PETICIONES_FEED_TOPIC, {
           method: 'POST',
           headers: { 'Title': 'Peticion Aprobada', 'Tags': 'white_check_mark' },
@@ -1277,14 +1260,71 @@
           headers: { 'Title': 'Peticion Aprobada', 'Tags': 'white_check_mark' },
           body: broadcastStr
         }).catch(() => {});
+      } catch (_) {}
 
-        showStatus('pet-save-status', 'ok', '✅ ¡Petición aprobada y publicada con éxito en la App y la Web!');
+      showStatus('pet-save-status', 'pending', '⚡ ¡Aprobada en vivo! Guardando en GitHub...');
+
+      if (!s.user || !s.repo || !s.token) {
+        showStatus('pet-save-status', 'ok', '✅ Petición aprobada y visible en la App y la Web.<br/><span style="color:#e0b96b; font-size:0.8rem;">(Nota: Configura tu token de GitHub en Ajustes para respaldarla permanentemente).</span>');
+        return;
+      }
+
+      // 3. Guardar permanentemente en GitHub
+      try {
+        let sha = null;
+        try {
+          const fileInfo = await getFileInfo(s, PETICIONES_PATH);
+          if (fileInfo && fileInfo.sha) {
+            sha = fileInfo.sha;
+          }
+          if (fileInfo && fileInfo.content) {
+            const parsed = cleanBase64Json(fileInfo.content, null);
+            if (Array.isArray(parsed)) {
+              const others = parsed.filter(p => p.id !== approvedPet.id);
+              publishedPetitions = [approvedPet, ...others];
+            }
+          }
+        } catch(e) {
+          console.warn('Lectura previa de peticiones.json:', e);
+        }
+
+        const newJsonStr = JSON.stringify(publishedPetitions, null, 2) + '\n';
+        const contentB64 = btoa(unescape(encodeURIComponent(newJsonStr)));
+
+        const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${PETICIONES_PATH}`;
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            ...getAuthHeader(s.token),
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: `🙏 Publicar petición de oración: ${approvedPet.author}`,
+            content: contentB64,
+            sha: sha || undefined,
+            branch: s.branch,
+          }),
+        });
+
+        if (!res.ok) {
+          const errDetail = await res.text();
+          let parsedMsg = errDetail;
+          try {
+            const errObj = JSON.parse(errDetail);
+            if (errObj.message) parsedMsg = errObj.message;
+          } catch (_) {}
+          throw new Error(`GitHub (${res.status}): ${parsedMsg}`);
+        }
+
+        renderPublishedPetitions();
+        showStatus('pet-save-status', 'ok', '✅ ¡Petición aprobada y guardada con éxito en GitHub y en la App!');
         setTimeout(() => {
           const el = document.getElementById('pet-save-status');
           if (el) el.className = 'status-box';
         }, 5000);
       } catch(e) {
-        showStatus('pet-save-status', 'error', `⚠️ Error al publicar: ${e.message}`);
+        showStatus('pet-save-status', 'error', `⚡ Petición activa en la App, pero aviso en GitHub: ${e.message}`);
       }
     }
 
@@ -1304,16 +1344,28 @@
     async function deletePublishedPetition(petId) {
       if (!confirm('¿Estás seguro de que deseas retirar esta petición de la lista pública?')) return;
       const s = getSettings();
+
+      publishedPetitions = publishedPetitions.filter(p => p.id !== petId);
+      renderPublishedPetitions();
+
+      const delStr = JSON.stringify({ action: 'DELETED', id: petId, petitions: publishedPetitions });
+      try {
+        fetch(PETICIONES_FEED_TOPIC, { method: 'POST', headers: { 'Title': 'Peticion Eliminada' }, body: delStr }).catch(() => {});
+        fetch(PETICIONES_FEED_TOPIC_FB, { method: 'POST', headers: { 'Title': 'Peticion Eliminada' }, body: delStr }).catch(() => {});
+      } catch (_) {}
+
       if (!s.user || !s.repo || !s.token) {
-        alert('Configura primero el usuario, repositorio y token de GitHub en la pestaña Ajustes.');
+        showStatus('pet-save-status', 'ok', '✅ Petición retirada en tiempo real.');
         return;
       }
 
-      showStatus('pet-save-status', 'pending', '⏳ Eliminando petición de GitHub...');
+      showStatus('pet-save-status', 'pending', '⏳ Retirando petición de GitHub...');
       try {
-        const fileInfo = await getFileInfo(s, PETICIONES_PATH);
-        const sha = fileInfo.sha;
-        publishedPetitions = publishedPetitions.filter(p => p.id !== petId);
+        let sha = null;
+        try {
+          const fileInfo = await getFileInfo(s, PETICIONES_PATH);
+          if (fileInfo && fileInfo.sha) sha = fileInfo.sha;
+        } catch (_) {}
 
         const newJsonStr = JSON.stringify(publishedPetitions, null, 2) + '\n';
         const contentB64 = btoa(unescape(encodeURIComponent(newJsonStr)));
@@ -1322,27 +1374,31 @@
         const res = await fetch(url, {
           method: 'PUT',
           headers: {
-            'Authorization': `token ${s.token}`,
+            ...getAuthHeader(s.token),
             'Accept': 'application/vnd.github.v3+json',
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             message: `🗑️ Retirar petición de oración (${petId})`,
             content: contentB64,
-            sha,
+            sha: sha || undefined,
             branch: s.branch,
           }),
         });
 
-        if (!res.ok) throw new Error(`GitHub error: ${res.statusText}`);
+        if (!res.ok) {
+          const errDetail = await res.text();
+          let parsedMsg = errDetail;
+          try {
+            const errObj = JSON.parse(errDetail);
+            if (errObj.message) parsedMsg = errObj.message;
+          } catch (_) {}
+          throw new Error(`GitHub (${res.status}): ${parsedMsg}`);
+        }
 
-        renderPublishedPetitions();
-        const delStr = JSON.stringify({ action: 'DELETED', id: petId, petitions: publishedPetitions });
-        fetch(PETICIONES_FEED_TOPIC, { method: 'POST', headers: { 'Title': 'Peticion Eliminada' }, body: delStr }).catch(() => {});
-        fetch(PETICIONES_FEED_TOPIC_FB, { method: 'POST', headers: { 'Title': 'Peticion Eliminada' }, body: delStr }).catch(() => {});
-        showStatus('pet-save-status', 'ok', '✅ Petición retirada correctamente.');
+        showStatus('pet-save-status', 'ok', '✅ Petición retirada correctamente de GitHub y de la App.');
       } catch(e) {
-        showStatus('pet-save-status', 'error', `⚠️ Error: ${e.message}`);
+        showStatus('pet-save-status', 'error', `⚠️ Retirada en tiempo real, pero aviso en GitHub: ${e.message}`);
       }
     }
 
