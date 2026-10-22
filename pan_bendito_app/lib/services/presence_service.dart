@@ -3,7 +3,9 @@ import 'package:http/http.dart' as http;
 import 'native_bridge.dart';
 
 class PresenceService {
-  static const String presenceTopic =
+  static const String presenceTopicPrimary =
+      'https://ntfy.adminforge.de/iglesia-pan-bendito-presence-v1';
+  static const String presenceTopicFallback =
       'https://ntfy.sh/iglesia-pan-bendito-presence-v1';
 
   static Timer? _heartbeatTimer;
@@ -49,9 +51,13 @@ class PresenceService {
   static void _sendSignal(String message) {
     try {
       http.post(
-        Uri.parse(presenceTopic),
+        Uri.parse(presenceTopicPrimary),
         body: message,
       ).timeout(const Duration(seconds: 3)).catchError((_) => http.Response('', 500));
+      http.post(
+        Uri.parse(presenceTopicFallback),
+        body: message,
+      ).timeout(const Duration(seconds: 2)).catchError((_) => http.Response('', 500));
     } catch (_) {}
   }
 }
