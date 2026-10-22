@@ -562,10 +562,41 @@
     async function loadPetitions() {
       const container = document.getElementById('petitions-list');
       try {
-        const res = await fetch(`./peticiones.json?_t=${Date.now()}`, { cache: 'no-store' });
-        if (!res.ok) throw new Error('Error al leer peticiones');
-        const list = await res.json();
-        renderPetitions(list);
+        let list = null;
+        // 1. Probar GitHub API (directo del árbol Git, 0 latencia de caché de CDN)
+        try {
+          const ghRes = await fetch(`https://api.github.com/repos/manasesmg2000/live-stream-site/contents/peticiones.json?ref=main&_t=${Date.now()}`, {
+            headers: { 'Accept': 'application/vnd.github.v3+json' },
+            cache: 'no-store'
+          });
+          if (ghRes.ok) {
+            const data = await ghRes.json();
+            if (data && data.content) {
+              const decoded = decodeURIComponent(escape(atob(data.content.replace(/\s/g, ''))));
+              list = JSON.parse(decoded);
+            }
+          }
+        } catch (_) {}
+
+        // 2. Si falló la API, probar raw.githubusercontent.com
+        if (!list) {
+          try {
+            const rawRes = await fetch(`https://raw.githubusercontent.com/manasesmg2000/live-stream-site/main/peticiones.json?_t=${Date.now()}`, { cache: 'no-store' });
+            if (rawRes.ok) list = await rawRes.json();
+          } catch (_) {}
+        }
+
+        // 3. Fallback a archivo relativo
+        if (!list) {
+          const res = await fetch(`./peticiones.json?_t=${Date.now()}`, { cache: 'no-store' });
+          if (res.ok) list = await res.json();
+        }
+
+        if (Array.isArray(list)) {
+          renderPetitions(list);
+        } else {
+          throw new Error('Error al leer peticiones');
+        }
       } catch (err) {
         container.innerHTML = `
           <div style="text-align:center; padding: 40px; color: var(--text-muted);">
@@ -577,6 +608,13 @@
     }
 
     function renderPetitions(list) {
+      // Reconciliar pendientes: si una petición ya fue aprobada y está en la lista pública, quitar de pendientes
+      if (Array.isArray(list) && myPending.length > 0) {
+        myPending = myPending.filter(p => !list.some(item => item.id === p.id || (item.text === p.text && item.date === p.date)));
+        sessionStorage.setItem('pb_my_pending_pet', JSON.stringify(myPending));
+        renderPending();
+      }
+
       const container = document.getElementById('petitions-list');
       if (!list || list.length === 0) {
         container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">No hay peticiones publicadas aún. ¡Sé el primero en pedir oración!</div>`;
@@ -761,7 +799,19 @@
     if (window.EventSource) {
       try {
         const sse = new EventSource(`${FEED_TOPIC}/sse`);
-        sse.onmessage = () => loadPetitions();
+        sse.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.event === 'message' && data.message) {
+              const msg = JSON.parse(data.message);
+              if (msg && Array.isArray(msg.petitions)) {
+                renderPetitions(msg.petitions);
+                return;
+              }
+            }
+          } catch (_) {}
+          loadPetitions();
+        };
       } catch (e) {}
     }
   </script>
