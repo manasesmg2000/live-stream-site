@@ -133,6 +133,31 @@
 
     .btn-yt svg { flex-shrink: 0; }
 
+    /* Botón Biblia */
+    .btn-biblia {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, rgba(224, 185, 107, 0.15), rgba(160, 185, 220, 0.1));
+      border: 1px solid rgba(224, 185, 107, 0.4);
+      color: var(--silver-bright);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 24px;
+      text-decoration: none;
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    .btn-biblia:hover {
+      background: linear-gradient(135deg, rgba(224, 185, 107, 0.3), rgba(160, 185, 220, 0.2));
+      border-color: #e0b96b;
+      box-shadow: 0 0 16px rgba(224, 185, 107, 0.3);
+      transform: translateY(-1px);
+    }
+
     /* ── MAIN ── */
     main {
       width: 100%;
@@ -281,6 +306,17 @@
     <div class="header-right">
       <div id="badge" class="live-badge hidden">● EN DIRECTO</div>
       <a
+        href="biblia.html"
+        class="btn-biblia"
+        title="Santa Biblia (RV1960 y NTV)"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        <span>Santa Biblia</span>
+      </a>
+      <a
         href="https://www.youtube.com/@pambenditoTV"
         target="_blank"
         rel="noopener noreferrer"
@@ -315,6 +351,20 @@
         </button>
       </div>
 
+      <div style="margin-top: 10px;">
+        <a
+          href="biblia.html"
+          class="btn-action"
+          style="padding: 12px 26px; font-size: 0.95rem; background: linear-gradient(135deg, #1e2c48, #162440); border: 1.5px solid rgba(224,185,107,0.6); color: #fff; box-shadow: 0 4px 16px rgba(0,0,0,0.3);"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e0b96b" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+          <span style="color: #e0b96b; font-weight: 700;">📖 Leer Santa Biblia (RV1960 y NTV)</span>
+        </a>
+      </div>
+
       <a
         href="https://www.youtube.com/@pambenditoTV"
         target="_blank"
@@ -344,6 +394,14 @@
         </iframe>
       </div>
       <div class="video-actions">
+        <!-- Botón Santa Biblia -->
+        <a href="biblia.html" target="_blank" class="btn-action" style="margin-right: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+          <span>Santa Biblia</span>
+        </a>
         <!-- Botón Abrir en YouTube -->
         <a id="btn-open-yt" href="" target="_blank" rel="noopener noreferrer" class="btn-action">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
