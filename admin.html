@@ -617,15 +617,25 @@
       const s = getSettings();
       const el = document.getElementById('current-state');
 
-      if (!s.user || !s.repo || !s.token) {
-        el.innerHTML = '<span style="color:#7090c0">Configura GitHub en la pestaña Ajustes para ver el estado.</span>';
-        return;
+      let cfg = null;
+      if (s.user && s.repo && s.token) {
+        try {
+          const fileInfo = await getFileInfo(s, CONFIG_PATH);
+          const decoded = decodeURIComponent(escape(atob(fileInfo.content.replace(/\n/g,''))));
+          cfg = JSON.parse(decoded);
+        } catch (e) {
+          console.warn('Fallo leyendo via GitHub API tokenizada, probando fallback publico:', e);
+        }
       }
 
-      try {
-        const fileInfo = await getFileInfo(s, CONFIG_PATH);
-        const decoded = decodeURIComponent(escape(atob(fileInfo.content.replace(/\n/g,''))));
-        const cfg = JSON.parse(decoded);
+      if (!cfg) {
+        try {
+          const res = await fetch(`./config.json?_t=${Date.now()}`, { cache: 'no-store' });
+          if (res.ok) cfg = await res.json();
+        } catch (_) {}
+      }
+
+      if (cfg) {
         currentConfigCache = cfg;
 
         if (cfg.lastVideoId) {
@@ -644,8 +654,12 @@
             <span class="dot-off">●</span> <b>Sin directo</b> — mostrando pantalla de espera
             ${cfg.lastVideoId ? `<br/><span style="font-size:0.75rem;color:#8fa5c7">Culto anterior disponible: <b>${cfg.lastVideoId}</b></span>` : ''}`;
         }
-      } catch (e) {
-        el.innerHTML = `<span style="color:#f44336">Error al leer estado: ${e.message}</span>`;
+      } else {
+        if (!s.token) {
+          el.innerHTML = '<span style="color:#e0b96b">⚠️ Recuerda configurar tu token de GitHub en la pestaña <b>Ajustes</b> para poder emitir o moderar.</span>';
+        } else {
+          el.innerHTML = '<span style="color:#7090c0">No se pudo cargar el archivo config.json</span>';
+        }
       }
     }
 
@@ -1252,15 +1266,6 @@
           petitions: publishedPetitions
         };
 
-        fetch(PETICIONES_FEED_TOPIC, {
-          method: 'POST',
-          headers: {
-            'Title': 'Peticion Aprobada',
-            'Tags': 'white_check_mark'
-          },
-          body: JSON.stringify(broadcastData)
-        };
-
         const broadcastStr = JSON.stringify(broadcastData);
         fetch(PETICIONES_FEED_TOPIC, {
           method: 'POST',
@@ -1342,15 +1347,15 @@
     }
 
     // ────────────────────────────────────────────
-    // Arranque
+    // Arranque protegido
     // ────────────────────────────────────────────
-    loadSettings();
-    loadCurrentState();
-    initPresenceStream();
-    refreshPresence();
-    initPetitionsStream();
-    checkPendingPetitions();
-    loadPublishedPetitionsAdmin();
+    try { loadSettings(); } catch(e) { console.warn('loadSettings:', e); }
+    try { loadCurrentState(); } catch(e) { console.warn('loadCurrentState:', e); }
+    try { initPresenceStream(); } catch(e) { console.warn('initPresenceStream:', e); }
+    try { refreshPresence(); } catch(e) { console.warn('refreshPresence:', e); }
+    try { initPetitionsStream(); } catch(e) { console.warn('initPetitionsStream:', e); }
+    try { checkPendingPetitions(); } catch(e) { console.warn('checkPendingPetitions:', e); }
+    try { loadPublishedPetitionsAdmin(); } catch(e) { console.warn('loadPublishedPetitionsAdmin:', e); }
     setInterval(renderActiveUsers, 5000); // reevaluar cada 5s el estado online/offline
     setInterval(refreshPresence, 5000);   // sincronizar conexiones cada 5s
     setInterval(checkPendingPetitions, 3000); // revisar nuevas peticiones cada 3 segundos
