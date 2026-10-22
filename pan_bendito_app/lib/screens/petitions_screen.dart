@@ -234,7 +234,7 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
           final data = jsonDecode(ghRes.body);
           if (data is Map<String, dynamic> && data['content'] != null) {
             final rawB64 = (data['content'] as String).replaceAll('\n', '').replaceAll(' ', '');
-            final decodedStr = utf8.decode(base64Decode(rawB64));
+            final decodedStr = utf8.decode(base64Decode(rawB64)).replaceAll('\uFEFF', '').trim();
             final parsed = jsonDecode(decodedStr);
             if (parsed is List) {
               loadedList = parsed;
