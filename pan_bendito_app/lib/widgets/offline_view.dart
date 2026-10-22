@@ -5,11 +5,13 @@ import '../services/native_bridge.dart';
 class OfflineView extends StatelessWidget {
   final String lastVideoId;
   final VoidCallback? onWatchPrevious;
+  final VoidCallback? onOpenBible;
 
   const OfflineView({
     super.key,
     this.lastVideoId = '',
     this.onWatchPrevious,
+    this.onOpenBible,
   });
 
   Future<void> _openChannel() async {
@@ -127,6 +129,29 @@ class OfflineView extends StatelessWidget {
                   elevation: 5,
                 ),
                 onPressed: _openPreviousVideo,
+              ),
+              const SizedBox(height: 14),
+            ],
+
+            // Botón Santa Biblia (RV1960 y NTV)
+            if (onOpenBible != null) ...[
+              ElevatedButton.icon(
+                icon: const Icon(Icons.menu_book_rounded, color: Color(0xFFE0B96B), size: 20),
+                label: const Text(
+                  'Leer Santa Biblia (RV1960 y NTV)',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFE0B96B)),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF172439),
+                  foregroundColor: const Color(0xFFE0B96B),
+                  side: const BorderSide(color: Color(0xFFE0B96B), width: 1.2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
+                  elevation: 4,
+                ),
+                onPressed: onOpenBible,
               ),
               const SizedBox(height: 14),
             ],
