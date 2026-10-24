@@ -547,8 +547,8 @@
   </footer>
 
   <script>
-    const PRIMARY_SERVER  = 'https://ntfy.adminforge.de';
-    const FALLBACK_SERVER = 'https://ntfy.sh';
+    const PRIMARY_SERVER  = 'https://ntfy.projectsegfau.lt';
+    const FALLBACK_SERVER = 'https://ntfy.envs.net';
 
     const ADMIN_TOPIC     = `${PRIMARY_SERVER}/iglesia-pan-bendito-peticiones-admin-v1`;
     const ADMIN_TOPIC_FB  = `${FALLBACK_SERVER}/iglesia-pan-bendito-peticiones-admin-v1`;
@@ -558,7 +558,7 @@
     const FEED_TOPIC_FB   = `${FALLBACK_SERVER}/iglesia-pan-bendito-peticiones-feed-v1`;
 
     let likedSet = new Set(JSON.parse(localStorage.getItem('pb_liked_petitions') || '[]'));
-    let myPending = JSON.parse(sessionStorage.getItem('pb_my_pending_pet') || '[]');
+    let myPending = JSON.parse(localStorage.getItem('pb_my_pending_pet') || '[]');
 
     function saveLiked() {
       localStorage.setItem('pb_liked_petitions', JSON.stringify([...likedSet]));
@@ -645,7 +645,7 @@
       // Reconciliar pendientes: si una petición ya fue aprobada y está en la lista pública, quitar de pendientes
       if (Array.isArray(list) && myPending.length > 0) {
         myPending = myPending.filter(p => !list.some(item => item.id === p.id || (item.text === p.text && item.date === p.date)));
-        sessionStorage.setItem('pb_my_pending_pet', JSON.stringify(myPending));
+        localStorage.setItem('pb_my_pending_pet', JSON.stringify(myPending));
         renderPending();
       }
 
@@ -797,9 +797,9 @@
       // Guardar nombre
       if (!isAnon && author) localStorage.setItem('pb_username', author);
 
-      // Guardar en pendientes locales
+      // Guardar en pendientes locales de forma permanente
       myPending.unshift(payload);
-      sessionStorage.setItem('pb_my_pending_pet', JSON.stringify(myPending));
+      localStorage.setItem('pb_my_pending_pet', JSON.stringify(myPending));
       renderPending();
 
       closePetitionModal();
@@ -810,7 +810,7 @@
         fetch(ADMIN_TOPIC, {
           method: 'POST',
           headers: {
-            'Title': isAnon ? 'Nueva Peticion Anonima' : `Peticion de ${realAuthor}`,
+            'Title': 'Nueva Peticion PB',
             'Priority': 'default',
             'Tags': 'pray,hand',
           },
@@ -819,7 +819,7 @@
         fetch(ADMIN_TOPIC_FB, {
           method: 'POST',
           headers: {
-            'Title': isAnon ? 'Nueva Peticion Anonima' : `Peticion de ${realAuthor}`,
+            'Title': 'Nueva Peticion PB',
             'Priority': 'default',
             'Tags': 'pray,hand',
           },
