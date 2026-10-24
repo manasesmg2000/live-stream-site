@@ -23,7 +23,7 @@ class LiveNotificationService : Service() {
 
     companion object {
         const val CHANNEL_ID = "pan_bendito_live"
-        const val TOPIC_URL = "https://ntfy.sh/iglesia-pan-bendito-live-channel-v1"
+        const val TOPIC_URL = "https://ntfy.projectsegfau.lt/iglesia-pan-bendito-live-channel-v1"
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
