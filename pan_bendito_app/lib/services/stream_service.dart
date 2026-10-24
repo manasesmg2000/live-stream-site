@@ -10,7 +10,7 @@ class StreamService {
   static const String fallbackPagesUrl =
       'https://manasesmg2000.github.io/live-stream-site/config.json';
   static const String realtimeTopic =
-      'https://ntfy.sh/iglesia-pan-bendito-live-channel-v1';
+      'https://ntfy.projectsegfau.lt/iglesia-pan-bendito-live-channel-v1';
 
   final _stateController = StreamController<StreamState>.broadcast();
   Stream<StreamState> get stateStream => _stateController.stream;
