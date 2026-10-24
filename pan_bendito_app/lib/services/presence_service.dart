@@ -4,9 +4,9 @@ import 'native_bridge.dart';
 
 class PresenceService {
   static const String presenceTopicPrimary =
-      'https://ntfy.adminforge.de/iglesia-pan-bendito-presence-v1';
+      'https://ntfy.projectsegfau.lt/iglesia-pan-bendito-presence-v1';
   static const String presenceTopicFallback =
-      'https://ntfy.sh/iglesia-pan-bendito-presence-v1';
+      'https://ntfy.envs.net/iglesia-pan-bendito-presence-v1';
 
   static Timer? _heartbeatTimer;
   static String? _currentUserName;
