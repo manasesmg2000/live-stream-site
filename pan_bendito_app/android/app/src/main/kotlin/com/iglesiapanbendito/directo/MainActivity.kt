@@ -89,6 +89,16 @@ class MainActivity: FlutterActivity() {
                     prefs.edit().putStringSet("liked_petitions", current).apply()
                     result.success(true)
                 }
+                "getPendingPetitions" -> {
+                    val prefs = getSharedPreferences("pan_bendito_prefs", Context.MODE_PRIVATE)
+                    result.success(prefs.getString("pending_petitions_json", "[]"))
+                }
+                "savePendingPetitions" -> {
+                    val json = call.argument<String>("json") ?: "[]"
+                    val prefs = getSharedPreferences("pan_bendito_prefs", Context.MODE_PRIVATE)
+                    prefs.edit().putString("pending_petitions_json", json).apply()
+                    result.success(true)
+                }
                 "requestNotificationPermission" -> {
                     requestNotificationPermission()
                     result.success(true)
