@@ -1,10 +1,10 @@
 [
   {
-    "id": "pet_1792847764565",
-    "author": "Manases",
-    "isAnonymous": false,
-    "text": "Por mi 2",
-    "date": "2026-10-24 15:16",
+    "id": "pet_1792847759858",
+    "author": "Anónimo",
+    "isAnonymous": true,
+    "text": "Por mi 1",
+    "date": "2026-10-24 15:15",
     "likes": 0
   },
   {
@@ -14,13 +14,5 @@
     "text": "Por mi casa",
     "date": "2026-10-22 17:48",
     "likes": 0
-  },
-  {
-    "id": "pet_1729600000000_2",
-    "author": "Anónimo",
-    "isAnonymous": true,
-    "text": "Pido oración por sanidad y por la restauración y unidad en mi familia. Confiando plenamente en el Señor.",
-    "date": "2026-10-22 17:15",
-    "likes": 8
   }
 ]
