@@ -50,21 +50,21 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
   static const String _peticionesFallbackUrl =
       'https://manasesmg2000.github.io/live-stream-site/peticiones.json';
 
-  // Servidores de mensajería (Primario adminforge.de + Respaldo ntfy.sh)
+  // Servidores de mensajería (Primario projectsegfau.lt + Respaldo envs.net)
   static const String _adminTopicPrimary =
-      'https://ntfy.adminforge.de/iglesia-pan-bendito-peticiones-admin-v1';
+      'https://ntfy.projectsegfau.lt/iglesia-pan-bendito-peticiones-admin-v1';
   static const String _adminTopicFallback =
-      'https://ntfy.sh/iglesia-pan-bendito-peticiones-admin-v1';
+      'https://ntfy.envs.net/iglesia-pan-bendito-peticiones-admin-v1';
 
   static const String _feedTopicPrimary =
-      'https://ntfy.adminforge.de/iglesia-pan-bendito-peticiones-feed-v1';
+      'https://ntfy.projectsegfau.lt/iglesia-pan-bendito-peticiones-feed-v1';
   static const String _feedTopicFallback =
-      'https://ntfy.sh/iglesia-pan-bendito-peticiones-feed-v1';
+      'https://ntfy.envs.net/iglesia-pan-bendito-peticiones-feed-v1';
 
   static const String _likesTopicPrimary =
-      'https://ntfy.adminforge.de/iglesia-pan-bendito-peticiones-likes-v1';
+      'https://ntfy.projectsegfau.lt/iglesia-pan-bendito-peticiones-likes-v1';
   static const String _likesTopicFallback =
-      'https://ntfy.sh/iglesia-pan-bendito-peticiones-likes-v1';
+      'https://ntfy.envs.net/iglesia-pan-bendito-peticiones-likes-v1';
 
   List<PetitionItem> _petitions = [];
   final List<Map<String, dynamic>> _myPendingPetitions = [];
@@ -139,8 +139,12 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
                       if (mounted) {
                         setState(() {
                           _petitions = list;
+                          final beforeLen = _myPendingPetitions.length;
                           _myPendingPetitions.removeWhere((pending) =>
                               _petitions.any((p) => p.id == pending['id'] || (p.text == pending['text'] && p.date == pending['date'])));
+                          if (_myPendingPetitions.length != beforeLen) {
+                            NativeBridge.savePendingPetitions(_myPendingPetitions);
+                          }
                         });
                       }
                       return;
@@ -201,6 +205,7 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
   Future<void> _loadUser() async {
     final name = await NativeBridge.getUserName();
     final savedLikes = await NativeBridge.getLikedPetitions();
+    final savedPending = await NativeBridge.getPendingPetitions();
     if (mounted) {
       setState(() {
         if (name != null && name.trim().isNotEmpty) {
@@ -209,6 +214,10 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
           _authorName = widget.initialUserName!.trim();
         }
         _likedIds.addAll(savedLikes);
+        if (savedPending.isNotEmpty) {
+          _myPendingPetitions.clear();
+          _myPendingPetitions.addAll(savedPending);
+        }
       });
     }
   }
@@ -314,8 +323,12 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
             _isLoading = false;
 
             // Reconciliar pendientes: quitar cualquier petición que ya esté en la lista pública
+            final beforeLen = _myPendingPetitions.length;
             _myPendingPetitions.removeWhere((pending) =>
                 _petitions.any((p) => p.id == pending['id'] || (p.text == pending['text'] && p.date == pending['date'])));
+            if (_myPendingPetitions.length != beforeLen) {
+              NativeBridge.savePendingPetitions(_myPendingPetitions);
+            }
           });
         }
         return;
@@ -635,15 +648,16 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
       _myPendingPetitions.insert(0, pendingData);
     });
 
-    // Enviar al canal del administrador (primario adminforge y respaldo ntfy.sh)
+    // 1. Guardar de forma persistente en el dispositivo para que no se borren al salir
+    await NativeBridge.savePendingPetitions(_myPendingPetitions);
+
+    // 2. Enviar al canal del administrador (primario projectsegfau.lt y respaldo envs.net)
     try {
       final jsonMsg = jsonEncode(pendingData);
       await http.post(
         Uri.parse(_adminTopicPrimary),
         headers: {
-          'Title': isAnonymous
-              ? 'Nueva Peticion Anonima'
-              : 'Peticion de $realName',
+          'Title': 'Nueva Peticion PB',
           'Priority': 'default',
           'Tags': 'pray,hand',
         },
@@ -656,14 +670,12 @@ class _PetitionsScreenState extends State<PetitionsScreen> {
       http.post(
         Uri.parse(_adminTopicFallback),
         headers: {
-          'Title': isAnonymous
-              ? 'Nueva Peticion Anonima'
-              : 'Peticion de $realName',
+          'Title': 'Nueva Peticion PB',
           'Priority': 'default',
           'Tags': 'pray,hand',
         },
         body: jsonMsg,
-      ).timeout(const Duration(seconds: 2)).catchError((_) => http.Response('', 500));
+      ).timeout(const Duration(seconds: 4)).catchError((_) => http.Response('', 500));
     } catch (_) {}
 
     if (mounted) {
