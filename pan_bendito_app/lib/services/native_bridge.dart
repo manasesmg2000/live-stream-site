@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/services.dart';
 
 class NativeBridge {
@@ -44,6 +45,33 @@ class NativeBridge {
         'id': id,
         'liked': liked,
       });
+      return success ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Obtiene la lista de peticiones pendientes guardadas localmente
+  static Future<List<Map<String, dynamic>>> getPendingPetitions() async {
+    try {
+      final jsonStr = await _channel.invokeMethod<String>('getPendingPetitions');
+      if (jsonStr != null && jsonStr.isNotEmpty) {
+        final decoded = jsonDecode(jsonStr);
+        if (decoded is List) {
+          return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Guarda la lista de peticiones pendientes del usuario localmente
+  static Future<bool> savePendingPetitions(List<Map<String, dynamic>> list) async {
+    try {
+      final jsonStr = jsonEncode(list);
+      final success = await _channel.invokeMethod<bool>('savePendingPetitions', {'json': jsonStr});
       return success ?? false;
     } catch (_) {
       return false;
