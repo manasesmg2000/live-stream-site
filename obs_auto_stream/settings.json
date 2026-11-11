@@ -1,0 +1,13 @@
+{
+  "obsFilePath": "c:\\Users\\usuario\\Documents\\github 2\\obs_auto_stream\\directo_obs.txt",
+  "githubToken": "",
+  "githubUser": "manasesmg2000",
+  "githubRepo": "live-stream-site",
+  "githubBranch": "main",
+  "autoStart": true,
+  "autoStop": true,
+  "stopDelaySeconds": 5,
+  "minimizeToTray": true,
+  "lastKnownVideoId": "",
+  "lastRecordedVideoId": "fvek_M_BWXs"
+}
