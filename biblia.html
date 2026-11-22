@@ -369,14 +369,51 @@
     .verse-line {
       display: inline;
       position: relative;
-      transition: background 0.2s;
-      border-radius: 3px;
+      transition: background 0.2s, box-shadow 0.2s;
+      border-radius: 4px;
       padding: 1px 2px;
     }
 
     .verse-line:hover {
       background: rgba(112, 144, 192, 0.15);
       cursor: pointer;
+    }
+
+    .verse-line.verse-highlight {
+      background: rgba(224, 185, 107, 0.25) !important;
+      outline: 1.5px solid var(--gold) !important;
+      border-radius: 4px;
+      animation: pulseGold 2s ease-out;
+    }
+
+    @keyframes pulseGold {
+      0% { box-shadow: 0 0 16px rgba(224, 185, 107, 0.9); }
+      100% { box-shadow: 0 0 4px rgba(224, 185, 107, 0.2); }
+    }
+
+    .verse-picker-all-btn {
+      width: 100%;
+      background: var(--navy-mid);
+      border: 1px solid var(--border-card);
+      color: var(--silver-bright);
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .verse-picker-all-btn:hover, .verse-picker-all-btn.selected {
+      background: var(--gold);
+      color: #0d1624;
+      border-color: #fff;
     }
 
     .v-num {
@@ -734,6 +771,17 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
       </button>
 
+      <button id="btn-open-verse-picker" class="btn-select" title="Seleccionar versículo">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e0b96b" stroke-width="2">
+          <line x1="4" y1="9" x2="20" y2="9"></line>
+          <line x1="4" y1="15" x2="20" y2="15"></line>
+          <line x1="10" y1="3" x2="8" y2="21"></line>
+          <line x1="16" y1="3" x2="14" y2="21"></line>
+        </svg>
+        <span id="current-verse-label">v. Todos</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+
       <button id="btn-prev-chap" class="btn-nav-chap" title="Capítulo anterior (Flecha Izquierda)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
       </button>
@@ -909,6 +957,8 @@
     // ─────────────────────────────────────────────────────────
     let currentBookCode = "JHN"; // S. Juan por defecto
     let currentChapter  = 3;     // Capítulo 3
+    let currentVerse    = null;  // null = Todos
+    let availableVerses = [];    // Versículos disponibles en el capítulo
     let currentVersion  = "RVR1960"; // "RVR1960", "NTV", o "PARALELO"
     let currentFontSize = parseInt(localStorage.getItem('pb_bible_font') || "18");
     const chapterCache  = new Map();
@@ -945,6 +995,20 @@
     // ─────────────────────────────────────────────────────────
     // RENDERIZADO DEL CAPÍTULO
     // ─────────────────────────────────────────────────────────
+    function extractVerseNumbers(data) {
+      const vSet = new Set();
+      const items = data?.chapter?.items || [];
+      items.forEach(item => {
+        if (item.type === 'verse' && item.verse_numbers) {
+          item.verse_numbers.forEach(n => {
+            const v = parseInt(n);
+            if (!isNaN(v) && v > 0) vSet.add(v);
+          });
+        }
+      });
+      return Array.from(vSet).sort((a, b) => a - b);
+    }
+
     async function loadCurrentChapter() {
       const book = getBook(currentBookCode);
       const bookTitle = `${book.name} ${currentChapter}`;
@@ -952,6 +1016,10 @@
       document.getElementById('current-book-label').textContent = bookTitle;
       document.getElementById('chapter-title').textContent = bookTitle;
       document.title = `${bookTitle} (${currentVersion}) — PAN BENDITO`;
+
+      if (currentVerse === null) {
+        document.getElementById('current-verse-label').textContent = 'v. Todos';
+      }
 
       const badge = document.getElementById('version-badge');
       if (currentVersion === 'PARALELO') {
@@ -988,6 +1056,10 @@
           return;
         }
 
+        const rvVerses = extractVerseNumbers(rvData);
+        const ntvVerses = extractVerseNumbers(ntvData);
+        availableVerses = Array.from(new Set([...rvVerses, ...ntvVerses])).sort((a, b) => a - b);
+
         renderParallelView(rvData, ntvData);
       } else {
         // Cargar versión individual
@@ -1001,7 +1073,21 @@
           `;
           return;
         }
+
+        availableVerses = extractVerseNumbers(data);
         renderSingleView(data);
+      }
+
+      if (currentVerse !== null) {
+        setTimeout(() => {
+          const targetEl = document.querySelector(`.verse-line[data-v="${currentVerse}"]`);
+          if (targetEl) {
+            document.querySelectorAll(`.verse-line[data-v="${currentVerse}"]`).forEach(el => {
+              el.classList.add('verse-highlight');
+            });
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 150);
       }
     }
 
@@ -1016,10 +1102,12 @@
           html += `<div class="section-title">${escapeHtml(title)}</div>`;
         } else if (item.type === 'verse') {
           const vNum = item.verse_numbers ? item.verse_numbers.join('-') : '';
+          const firstV = item.verse_numbers && item.verse_numbers.length > 0 ? item.verse_numbers[0] : vNum;
           const text = item.lines ? item.lines.join(' ') : '';
           const fullRef = `${getBook(currentBookCode).name} ${currentChapter}:${vNum} (${currentVersion})`;
+          const isHighlighted = (currentVerse !== null && currentVerse == firstV) ? ' verse-highlight' : '';
           html += `
-            <span class="verse-line" onclick="copyVerse('${escapeAttr(fullRef)}', '${escapeAttr(text)}')" title="Clic para copiar">
+            <span id="verse-${firstV}" data-v="${firstV}" class="verse-line${isHighlighted}" onclick="copyVerse('${escapeAttr(fullRef)}', '${escapeAttr(text)}')" title="Clic para copiar">
               <span class="v-num">${vNum}</span>
               <span class="v-text">${escapeHtml(text)} </span>
             </span>
@@ -1043,10 +1131,12 @@
             colHtml += `<div class="section-title">${escapeHtml(title)}</div>`;
           } else if (item.type === 'verse') {
             const vNum = item.verse_numbers ? item.verse_numbers.join('-') : '';
+            const firstV = item.verse_numbers && item.verse_numbers.length > 0 ? item.verse_numbers[0] : vNum;
             const text = item.lines ? item.lines.join(' ') : '';
             const fullRef = `${getBook(currentBookCode).name} ${currentChapter}:${vNum} (${verName})`;
+            const isHighlighted = (currentVerse !== null && currentVerse == firstV) ? ' verse-highlight' : '';
             colHtml += `
-              <span class="verse-line" onclick="copyVerse('${escapeAttr(fullRef)}', '${escapeAttr(text)}')" title="Clic para copiar">
+              <span id="verse-${verName}-${firstV}" data-v="${firstV}" class="verse-line${isHighlighted}" onclick="copyVerse('${escapeAttr(fullRef)}', '${escapeAttr(text)}')" title="Clic para copiar">
                 <span class="v-num">${vNum}</span>
                 <span class="v-text">${escapeHtml(text)} </span>
               </span>
@@ -1240,9 +1330,67 @@
     function pickChapter(bookCode, chapNum) {
       currentBookCode = bookCode;
       currentChapter = chapNum;
+      currentVerse = null;
       closePickerModal();
       loadCurrentChapter();
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // MODAL SELECTOR DE VERSÍCULOS
+    // ─────────────────────────────────────────────────────────
+    function openVersePickerModal() {
+      const book = getBook(currentBookCode);
+      document.getElementById('modal-step-title').textContent = `${book.name} ${currentChapter}: Elige Versículo`;
+      document.getElementById('modal-search-box').style.display = 'none';
+
+      const body = document.getElementById('modal-body');
+      let html = `
+        <button class="verse-picker-all-btn ${currentVerse === null ? 'selected' : ''}" onclick="pickVerse(null)">
+          📖 Ver capítulo completo (Todos los versículos)
+        </button>
+        <div class="chapters-grid">
+      `;
+
+      const listToRender = (availableVerses && availableVerses.length > 0)
+        ? availableVerses
+        : Array.from({length: 30}, (_, i) => i + 1);
+
+      listToRender.forEach(vNum => {
+        const isCurrent = (currentVerse === vNum);
+        html += `
+          <button class="chap-btn ${isCurrent ? 'selected' : ''}" onclick="pickVerse(${vNum})">
+            ${vNum}
+          </button>
+        `;
+      });
+
+      html += `</div>`;
+      body.innerHTML = html;
+      document.getElementById('book-modal').classList.add('show');
+    }
+
+    function pickVerse(vNum) {
+      currentVerse = vNum;
+      document.getElementById('current-verse-label').textContent = vNum ? `v. ${vNum}` : 'v. Todos';
+      closePickerModal();
+
+      document.querySelectorAll('.verse-line.verse-highlight').forEach(el => {
+        el.classList.remove('verse-highlight');
+      });
+
+      if (vNum === null) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      const targetEl = document.querySelector(`.verse-line[data-v="${vNum}"]`);
+      if (targetEl) {
+        document.querySelectorAll(`.verse-line[data-v="${vNum}"]`).forEach(el => {
+          el.classList.add('verse-highlight');
+        });
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
 
     // ─────────────────────────────────────────────────────────
@@ -1280,6 +1428,7 @@
     // EVENT LISTENERS
     // ─────────────────────────────────────────────────────────
     document.getElementById('btn-open-picker').onclick = openPickerModal;
+    document.getElementById('btn-open-verse-picker').onclick = openVersePickerModal;
     document.getElementById('modal-close-btn').onclick = closePickerModal;
     document.getElementById('book-modal').onclick = (e) => {
       if (e.target.id === 'book-modal') closePickerModal();
