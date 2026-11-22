@@ -62,8 +62,17 @@ jobs:
             sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />\n    <queries>\n        <package android:name="com.google.android.youtube" />\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="vnd.youtube" />\n        </intent>\n    </queries>' "$MANIFEST"
           fi
 
-          # Desactivar lint vital en release para evitar fallos por métodos no encontrados
-          printf '\nallprojects {\n    afterEvaluate { project ->\n        project.tasks.matching { it.name.contains("lintVital") || it.name.contains("LintVital") }.configureEach {\n            enabled = false\n        }\n    }\n}\n' >> android/build.gradle
+          # Desactivar lint en release (inyectar en app/build.gradle.kts si existe, si no en build.gradle)
+          APP_BG="android/app/build.gradle.kts"
+          APP_BG_GROOVY="android/app/build.gradle"
+          if [ -f "$APP_BG" ]; then
+            # Kotlin DSL: añadir bloque android { lint { ... } } al final
+            echo '' >> "$APP_BG"
+            echo 'android { lint { checkReleaseBuilds = false; abortOnError = false } }' >> "$APP_BG"
+          elif [ -f "$APP_BG_GROOVY" ]; then
+            echo '' >> "$APP_BG_GROOVY"
+            echo 'android { lintOptions { checkReleaseBuilds false; abortOnError false } }' >> "$APP_BG_GROOVY"
+          fi
 
           # Configurar certificado release permanente (para que no cambie la firma en cada build)
           if [ -f "panbendito.keystore.b64" ]; then
@@ -169,8 +178,16 @@ jobs:
           sed -i 's/android:label="[^"]*"/android:label="ADM PB" android:usesCleartextTraffic="true"/g' "$MANIFEST"
           sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' "$MANIFEST"
 
-          # Desactivar lint vital en release para evitar fallos por métodos no encontrados
-          printf '\nallprojects {\n    afterEvaluate { project ->\n        project.tasks.matching { it.name.contains("lintVital") || it.name.contains("LintVital") }.configureEach {\n            enabled = false\n        }\n    }\n}\n' >> android/build.gradle
+          # Desactivar lint en release (inyectar en app/build.gradle.kts si existe, si no en build.gradle)
+          APP_BG="android/app/build.gradle.kts"
+          APP_BG_GROOVY="android/app/build.gradle"
+          if [ -f "$APP_BG" ]; then
+            echo '' >> "$APP_BG"
+            echo 'android { lint { checkReleaseBuilds = false; abortOnError = false } }' >> "$APP_BG"
+          elif [ -f "$APP_BG_GROOVY" ]; then
+            echo '' >> "$APP_BG_GROOVY"
+            echo 'android { lintOptions { checkReleaseBuilds false; abortOnError false } }' >> "$APP_BG_GROOVY"
+          fi
 
           # Utilizar el mismo keystore release permanente
           if [ -f "../pan_bendito_app/panbendito.keystore.b64" ]; then
