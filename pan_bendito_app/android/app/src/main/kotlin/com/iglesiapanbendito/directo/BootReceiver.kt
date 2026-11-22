@@ -11,6 +11,7 @@ class BootReceiver : BroadcastReceiver() {
             action == Intent.ACTION_MY_PACKAGE_REPLACED ||
             action == "android.intent.action.QUICKBOOT_POWERON") {
             try {
+                LiveNotificationService.start(context)
                 NotificationScheduler.scheduleNext(context)
             } catch (_: Exception) {}
         }
