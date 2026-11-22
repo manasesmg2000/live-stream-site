@@ -7,29 +7,40 @@ import android.content.Intent
 import android.os.Build
 
 object NotificationScheduler {
-    private const val INTERVAL_MS = 45000L // 45 segundos
+    private const val INTERVAL_MS = 60000L // 60 segundos de sondeo periódico de respaldo
 
     fun scheduleNext(context: Context) {
         try {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val intent = Intent(context, NotificationAlarmReceiver::class.java)
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                999,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
-            )
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            val pendingIntent = PendingIntent.getBroadcast(context, 999, intent, flags)
 
             val triggerTime = System.currentTimeMillis() + INTERVAL_MS
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // En Android 12+ (API 31/33/34), verificar si la app tiene permiso de alarmas exactas
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerTime,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerTime,
+                        pendingIntent
+                    )
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerTime,
                     pendingIntent
                 )
             } else {
-                alarmManager.setExact(
+                alarmManager.set(
                     AlarmManager.RTC_WAKEUP,
                     triggerTime,
                     pendingIntent
@@ -37,15 +48,10 @@ object NotificationScheduler {
             }
         } catch (_: Exception) {
             try {
-                // Fallback por si el sistema operativo restringe alarmas exactas
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
                 val intent = Intent(context, NotificationAlarmReceiver::class.java)
-                val pendingIntent = PendingIntent.getBroadcast(
-                    context,
-                    999,
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
-                )
+                val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+                val pendingIntent = PendingIntent.getBroadcast(context, 999, intent, flags)
                 alarmManager.set(
                     AlarmManager.RTC_WAKEUP,
                     System.currentTimeMillis() + INTERVAL_MS,
