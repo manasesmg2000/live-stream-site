@@ -8,6 +8,11 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- Queries para poder abrir directamente la app de YouTube en Android 11+ -->
     <queries>
@@ -47,11 +52,12 @@
             </intent-filter>
         </activity>
 
-        <!-- Servicio en segundo plano para notificaciones con app cerrada -->
+        <!-- Servicio en primer plano indestructible para notificaciones push en tiempo real con app cerrada -->
         <service
             android:name=".LiveNotificationService"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <!-- Receptor de inicio de dispositivo para arrancar el servicio automáticamente -->
         <receiver
