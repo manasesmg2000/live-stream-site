@@ -63,16 +63,7 @@ jobs:
           fi
 
           # Desactivar lint vital en release para evitar fallos por métodos no encontrados
-          cat << 'EOF' >> android/build.gradle
-
-allprojects {
-    afterEvaluate { project ->
-        project.tasks.matching { it.name.contains("lintVital") || it.name.contains("LintVital") }.configureEach {
-            enabled = false
-        }
-    }
-}
-EOF
+          printf '\nallprojects {\n    afterEvaluate { project ->\n        project.tasks.matching { it.name.contains("lintVital") || it.name.contains("LintVital") }.configureEach {\n            enabled = false\n        }\n    }\n}\n' >> android/build.gradle
 
           # Configurar certificado release permanente (para que no cambie la firma en cada build)
           if [ -f "panbendito.keystore.b64" ]; then
@@ -179,16 +170,7 @@ EOF
           sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' "$MANIFEST"
 
           # Desactivar lint vital en release para evitar fallos por métodos no encontrados
-          cat << 'EOF' >> android/build.gradle
-
-allprojects {
-    afterEvaluate { project ->
-        project.tasks.matching { it.name.contains("lintVital") || it.name.contains("LintVital") }.configureEach {
-            enabled = false
-        }
-    }
-}
-EOF
+          printf '\nallprojects {\n    afterEvaluate { project ->\n        project.tasks.matching { it.name.contains("lintVital") || it.name.contains("LintVital") }.configureEach {\n            enabled = false\n        }\n    }\n}\n' >> android/build.gradle
 
           # Utilizar el mismo keystore release permanente
           if [ -f "../pan_bendito_app/panbendito.keystore.b64" ]; then
