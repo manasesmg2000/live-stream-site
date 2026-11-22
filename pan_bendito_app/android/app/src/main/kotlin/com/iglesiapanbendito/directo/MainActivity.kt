@@ -42,13 +42,25 @@ class MainActivity: FlutterActivity() {
         // 3. Solicitar permiso de notificaciones en Android 13+ (API 33+) al abrir la app
         requestNotificationPermission()
 
-        // 4. Iniciar servicio y programador en segundo plano para notificaciones aunque la app esté cerrada
+        // 4. Iniciar servicio en primer plano y programador de alarmas (indestructible con app cerrada)
+        LiveNotificationService.start(this)
         NotificationScheduler.scheduleNext(this)
-        try {
-            val serviceIntent = Intent(this, LiveNotificationService::class.java)
-            startService(serviceIntent)
-        } catch (e: Exception) {
-            e.printStackTrace()
+
+        // 5. Solicitar exención de optimización de batería (evita que el sistema congele la app)
+        requestBatteryOptimizationExemption()
+    }
+
+    private fun requestBatteryOptimizationExemption() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val powerManager = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+                if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                    val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                }
+            } catch (_: Exception) {}
         }
     }
 
@@ -192,7 +204,19 @@ class MainActivity: FlutterActivity() {
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        try {
+            LiveNotificationService.start(this)
+            NotificationScheduler.scheduleNext(this)
+        } catch (_: Exception) {}
+    }
+
     override fun onDestroy() {
+        try {
+            LiveNotificationService.start(this)
+            NotificationScheduler.scheduleNext(this)
+        } catch (_: Exception) {}
         super.onDestroy()
         try {
             multicastLock?.let {
