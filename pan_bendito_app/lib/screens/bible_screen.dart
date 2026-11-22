@@ -952,13 +952,6 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
-        const SizedBox(height: 20),
-        _buildBottomNavButtons(),
-        const SizedBox(height: 20),
-      ],
-    );
-  }
-
   Widget _buildBottomNavButtons() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
