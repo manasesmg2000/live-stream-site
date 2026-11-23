@@ -66,22 +66,11 @@ jobs:
           APP_BG="android/app/build.gradle.kts"
           APP_BG_GROOVY="android/app/build.gradle"
           if [ -f "$APP_BG" ]; then
-            # Kotlin DSL: añadir WorkManager + lint al final de app/build.gradle.kts
             echo '' >> "$APP_BG"
             echo 'android { lint { checkReleaseBuilds = false; abortOnError = false } }' >> "$APP_BG"
-            # Inyectar dependencia WorkManager en el bloque dependencies existente
-            sed -i '/^dependencies {/a\    implementation("androidx.work:work-runtime-ktx:2.9.1")' "$APP_BG"
           elif [ -f "$APP_BG_GROOVY" ]; then
             echo '' >> "$APP_BG_GROOVY"
             echo 'android { lintOptions { checkReleaseBuilds false; abortOnError false } }' >> "$APP_BG_GROOVY"
-            sed -i '/^dependencies {/a\    implementation "androidx.work:work-runtime-ktx:2.9.1"' "$APP_BG_GROOVY"
-          fi
-
-          # Copiar LiveNotificationWorker.kt al proyecto restaurado
-          WORKER_SRC="backup_native/kotlin/com/iglesiapanbendito/directo/LiveNotificationWorker.kt"
-          WORKER_DST="android/app/src/main/kotlin/com/iglesiapanbendito/directo/LiveNotificationWorker.kt"
-          if [ -f "$WORKER_SRC" ]; then
-            cp "$WORKER_SRC" "$WORKER_DST"
           fi
 
           # Configurar certificado release permanente (para que no cambie la firma en cada build)
