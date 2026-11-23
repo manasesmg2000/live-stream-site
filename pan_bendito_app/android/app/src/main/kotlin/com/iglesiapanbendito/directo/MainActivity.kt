@@ -18,7 +18,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileWriter
 
-class MainActivity: FlutterActivity() {
+open class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.iglesiapanbendito.directo/native"
     private var multicastLock: WifiManager.MulticastLock? = null
 
@@ -49,6 +49,14 @@ class MainActivity: FlutterActivity() {
 
         // 5. Preguntar de forma amable si desea desactivar optimización de batería (sin llevar a ajustes a la fuerza)
         requestBatteryOptimizationExemption()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 101 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            LiveNotificationService.start(this)
+            NotificationScheduler.scheduleNext(this)
+        }
     }
 
     private fun requestBatteryOptimizationExemption() {
