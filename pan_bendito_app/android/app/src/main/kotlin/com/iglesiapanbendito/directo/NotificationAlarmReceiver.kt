@@ -18,7 +18,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
-class NotificationAlarmReceiver : BroadcastReceiver() {
+open class NotificationAlarmReceiver : BroadcastReceiver() {
     companion object {
         const val LIVE_CHANNEL_ID = "pan_bendito_live"
         const val PREFS_NAME = "pan_bendito_stream_state"
