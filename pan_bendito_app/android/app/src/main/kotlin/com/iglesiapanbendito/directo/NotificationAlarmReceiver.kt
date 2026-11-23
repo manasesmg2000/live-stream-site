@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
@@ -24,6 +25,7 @@ open class NotificationAlarmReceiver : BroadcastReceiver() {
         const val PREFS_NAME = "pan_bendito_stream_state"
         const val KEY_LAST_LIVE = "last_live_state"
         const val KEY_LAST_NOTIFIED_VID = "last_notified_vid"
+        const val KEY_LAST_MSG_ID = "last_processed_ntfy_id"
 
         val NTFY_POLL_URLS = listOf(
             "https://ntfy.sh/iglesia-pan-bendito-live-channel-v1/json?poll=1&since=10m",
@@ -45,11 +47,9 @@ open class NotificationAlarmReceiver : BroadcastReceiver() {
 
         Thread {
             try {
-                // Comprobar directamente si hay emisión o si ha terminado
                 checkStreamAndNotify(context)
             } catch (_: Exception) {
             } finally {
-                // Programar siempre la siguiente comprobación
                 NotificationScheduler.scheduleNext(context)
                 try {
                     if (wakeLock?.isHeld == true) {
@@ -62,10 +62,14 @@ open class NotificationAlarmReceiver : BroadcastReceiver() {
     }
 
     private fun checkStreamAndNotify(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val lastProcessedId = prefs.getString(KEY_LAST_MSG_ID, "") ?: ""
+        var newestMsgId = ""
         var isLive: Boolean? = null
         var videoId: String = ""
+        var eventType: String = "" // "LIVE" o "OFFLINE"
 
-        // 1. Consultar ntfy en orden de prioridad
+        // 1. Consultar ntfy para eventos inmediatos recientes
         for (pollUrl in NTFY_POLL_URLS) {
             try {
                 val ntfyResp = fetchUrl(pollUrl)
@@ -75,18 +79,24 @@ open class NotificationAlarmReceiver : BroadcastReceiver() {
                         try {
                             val item = JSONObject(line)
                             if (item.optString("event") == "message") {
+                                val currentId = item.optString("id", "").trim()
                                 val msg = item.optString("message", "").trim()
-                                if (msg.startsWith("LIVE:")) {
-                                    val payload = msg.substring(5)
-                                    val parts = payload.split("|")
-                                    videoId = parts.getOrNull(0)?.trim() ?: ""
-                                    if (videoId.isNotEmpty()) {
+
+                                if (currentId.isNotEmpty() && currentId != lastProcessedId) {
+                                    if (msg.startsWith("LIVE:")) {
+                                        val payload = msg.substring(5)
+                                        val parts = payload.split("|")
+                                        videoId = parts.getOrNull(0)?.trim() ?: ""
                                         isLive = true
+                                        eventType = "LIVE"
+                                        newestMsgId = currentId
+                                        break
+                                    } else if (msg.startsWith("OFFLINE")) {
+                                        isLive = false
+                                        eventType = "OFFLINE"
+                                        newestMsgId = currentId
                                         break
                                     }
-                                } else if (msg.startsWith("OFFLINE")) {
-                                    isLive = false
-                                    break
                                 }
                             }
                         } catch (_: Exception) {}
@@ -96,52 +106,64 @@ open class NotificationAlarmReceiver : BroadcastReceiver() {
             } catch (_: Exception) {}
         }
 
-        // 2. Si no hubo señal reciente en ntfy, consultar config.json en GitHub
+        // 2. Si no hubo mensaje nuevo en ntfy, comprobar config.json en GitHub
         if (isLive == null) {
             try {
                 val configResp = fetchUrl("$RAW_CONFIG_URL?_t=${System.currentTimeMillis()}")
                     ?: fetchUrl("$PAGES_CONFIG_URL?_t=${System.currentTimeMillis()}")
                 if (!configResp.isNullOrEmpty()) {
                     val json = JSONObject(configResp)
-                    isLive = json.optBoolean("live", false)
-                    videoId = json.optString("videoId", "").trim()
+                    val liveInConfig = json.optBoolean("live", false)
+                    val vidInConfig = json.optString("videoId", "").trim()
+                    val wasLive = prefs.getBoolean(KEY_LAST_LIVE, false)
+                    val lastVid = prefs.getString(KEY_LAST_NOTIFIED_VID, "") ?: ""
+
+                    if (liveInConfig && vidInConfig.isNotEmpty()) {
+                        if (!wasLive || lastVid != vidInConfig) {
+                            isLive = true
+                            videoId = vidInConfig
+                            eventType = "LIVE"
+                        }
+                    } else if (!liveInConfig && wasLive) {
+                        isLive = false
+                        eventType = "OFFLINE"
+                    }
                 }
             } catch (_: Exception) {}
         }
 
-        if (isLive == null) return
-
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val wasLive = prefs.getBoolean(KEY_LAST_LIVE, false)
-        val lastNotifiedVid = prefs.getString(KEY_LAST_NOTIFIED_VID, "") ?: ""
-
-        if (isLive == true && videoId.isNotEmpty()) {
-            if (!wasLive || videoId != lastNotifiedVid) {
-                prefs.edit()
-                    .putBoolean(KEY_LAST_LIVE, true)
-                    .putString(KEY_LAST_NOTIFIED_VID, videoId)
-                    .apply()
-
-                showNotification(
-                    context,
-                    1001,
-                    "🔴 ¡Estamos EN DIRECTO!",
-                    "Ha comenzado el culto en directo de Pan Bendito. Toca para verlo."
-                )
+        // 3. Emitir notificación si hay un evento
+        if (eventType == "LIVE" && isLive == true) {
+            val editor = prefs.edit()
+                .putBoolean(KEY_LAST_LIVE, true)
+            if (videoId.isNotEmpty()) {
+                editor.putString(KEY_LAST_NOTIFIED_VID, videoId)
             }
-        } else if (isLive == false) {
-            if (wasLive) {
-                prefs.edit()
-                    .putBoolean(KEY_LAST_LIVE, false)
-                    .apply()
-
-                showNotification(
-                    context,
-                    1002,
-                    "⏹ Culto finalizado",
-                    "El directo ha terminado. ¡Gracias por acompañarnos! Ya puedes ver el culto anterior."
-                )
+            if (newestMsgId.isNotEmpty()) {
+                editor.putString(KEY_LAST_MSG_ID, newestMsgId)
             }
+            editor.apply()
+
+            showNotification(
+                context,
+                1001,
+                "🔴 ¡Estamos EN DIRECTO!",
+                "Ha comenzado el culto en directo de Pan Bendito. Toca para verlo."
+            )
+        } else if (eventType == "OFFLINE" && isLive == false) {
+            val editor = prefs.edit()
+                .putBoolean(KEY_LAST_LIVE, false)
+            if (newestMsgId.isNotEmpty()) {
+                editor.putString(KEY_LAST_MSG_ID, newestMsgId)
+            }
+            editor.apply()
+
+            showNotification(
+                context,
+                1002,
+                "⏹ Culto finalizado",
+                "El directo ha terminado. ¡Gracias por acompañarnos! Ya puedes ver el culto anterior."
+            )
         }
     }
 
@@ -198,10 +220,11 @@ open class NotificationAlarmReceiver : BroadcastReceiver() {
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
             val pendingIntent = PendingIntent.getActivity(context, id, launchIntent, flags)
 
-            val iconRes = if (context.applicationInfo.icon != 0) context.applicationInfo.icon else android.R.drawable.ic_dialog_info
+            // Icono pequeño seguro del sistema para evitar incompatibilidades de XML adaptativo
+            val smallIcon = android.R.drawable.stat_notify_chat
 
             val builder = NotificationCompat.Builder(context, LIVE_CHANNEL_ID)
-                .setSmallIcon(iconRes)
+                .setSmallIcon(smallIcon)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -211,6 +234,17 @@ open class NotificationAlarmReceiver : BroadcastReceiver() {
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
+
+            // Añadir icono grande con el logo de la iglesia si está disponible
+            try {
+                val logoId = context.resources.getIdentifier("ic_launcher", "mipmap", context.packageName)
+                if (logoId != 0) {
+                    val bitmap = BitmapFactory.decodeResource(context.resources, logoId)
+                    if (bitmap != null) {
+                        builder.setLargeIcon(bitmap)
+                    }
+                }
+            } catch (_: Exception) {}
 
             notificationManager.notify(id, builder.build())
         } catch (_: Exception) {}
