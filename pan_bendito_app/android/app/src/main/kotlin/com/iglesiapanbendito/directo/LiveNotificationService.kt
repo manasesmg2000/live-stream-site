@@ -1,21 +1,17 @@
 package com.iglesiapanbendito.directo
 
-import android.app.AlarmManager
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ServiceInfo
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
-import android.os.SystemClock
 import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -28,11 +24,10 @@ open class LiveNotificationService : Service() {
 
     companion object {
         const val LIVE_CHANNEL_ID = "pan_bendito_live"
-        const val SERVICE_CHANNEL_ID = "pan_bendito_service"
-        const val SERVICE_NOTIFICATION_ID = 9001
         const val PREFS_NAME = "pan_bendito_stream_state"
         const val KEY_LAST_LIVE = "last_live_state"
         const val KEY_LAST_NOTIFIED_VID = "last_notified_vid"
+        const val KEY_LAST_MSG_ID = "last_processed_ntfy_id"
 
         val NTFY_SSE_SERVERS = listOf(
             "https://ntfy.sh/iglesia-pan-bendito-live-channel-v1/sse",
@@ -45,11 +40,7 @@ open class LiveNotificationService : Service() {
         fun start(context: Context) {
             try {
                 val intent = Intent(context, LiveNotificationService::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    ContextCompat.startForegroundService(context, intent)
-                } else {
-                    context.startService(intent)
-                }
+                context.startService(intent)
             } catch (_: Exception) {}
         }
     }
@@ -58,68 +49,20 @@ open class LiveNotificationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        createChannels()
-        promoteToForeground()
+        ensureNotificationChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        promoteToForeground()
         if (!isRunning) {
             isRunning = true
             startBackgroundWorker()
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
-    private fun promoteToForeground() {
-        try {
-            val serviceNotification = buildServiceNotification()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(
-                    SERVICE_NOTIFICATION_ID,
-                    serviceNotification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                )
-            } else {
-                startForeground(SERVICE_NOTIFICATION_ID, serviceNotification)
-            }
-        } catch (_: Exception) {}
-    }
-
-    private fun buildServiceNotification(): Notification {
-        val launchIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
-        val pendingIntent = PendingIntent.getActivity(this, 9000, launchIntent, flags)
-
-        val iconRes = if (applicationInfo.icon != 0) applicationInfo.icon else android.R.drawable.ic_dialog_info
-
-        return NotificationCompat.Builder(this, SERVICE_CHANNEL_ID)
-            .setSmallIcon(iconRes)
-            .setContentTitle("Iglesia Pan Bendito")
-            .setContentText("Servicio de alertas de cultos activo")
-            .setPriority(NotificationCompat.PRIORITY_MIN)
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .setContentIntent(pendingIntent)
-            .build()
-    }
-
-    private fun createChannels() {
+    private fun ensureNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-            val serviceChannel = NotificationChannel(
-                SERVICE_CHANNEL_ID,
-                "Servicio de Segundo Plano",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Mantiene activa la recepción de notificaciones cuando la app está cerrada"
-                setShowBadge(false)
-            }
-            manager.createNotificationChannel(serviceChannel)
-
             val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             val audioAttrs = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION)
@@ -135,7 +78,7 @@ open class LiveNotificationService : Service() {
                 enableVibration(true)
                 enableLights(true)
                 setSound(soundUri, audioAttrs)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
             manager.createNotificationChannel(liveChannel)
         }
@@ -201,35 +144,37 @@ open class LiveNotificationService : Service() {
             val msg = json.optString("message", "").trim()
 
             if (event == "message" && msg.isNotEmpty()) {
+                val currentId = json.optString("id", "").trim()
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                val wasLive = prefs.getBoolean(KEY_LAST_LIVE, false)
-                val lastVid = prefs.getString(KEY_LAST_NOTIFIED_VID, "") ?: ""
+                val lastProcessedId = prefs.getString(KEY_LAST_MSG_ID, "") ?: ""
+
+                if (currentId.isNotEmpty() && currentId == lastProcessedId) {
+                    return // Ya procesado
+                }
 
                 if (msg.startsWith("LIVE:")) {
                     val payload = msg.substring(5)
                     val videoId = payload.split("|").getOrNull(0)?.trim() ?: ""
-                    if (videoId.isNotEmpty() && (!wasLive || lastVid != videoId)) {
-                        prefs.edit()
-                            .putBoolean(KEY_LAST_LIVE, true)
-                            .putString(KEY_LAST_NOTIFIED_VID, videoId)
-                            .apply()
-                        showLiveNotification(
-                            1001,
-                            "🔴 ¡Estamos EN DIRECTO!",
-                            "Ha comenzado el culto en directo de Pan Bendito. Toca para verlo."
-                        )
-                    }
+                    prefs.edit()
+                        .putBoolean(KEY_LAST_LIVE, true)
+                        .putString(KEY_LAST_NOTIFIED_VID, videoId)
+                        .putString(KEY_LAST_MSG_ID, currentId)
+                        .apply()
+                    showLiveNotification(
+                        1001,
+                        "🔴 ¡Estamos EN DIRECTO!",
+                        "Ha comenzado el culto en directo de Pan Bendito. Toca para verlo."
+                    )
                 } else if (msg.startsWith("OFFLINE")) {
-                    if (wasLive) {
-                        prefs.edit()
-                            .putBoolean(KEY_LAST_LIVE, false)
-                            .apply()
-                        showLiveNotification(
-                            1002,
-                            "⏹ Culto finalizado",
-                            "El directo ha terminado. ¡Gracias por acompañarnos! Ya puedes ver el culto anterior."
-                        )
-                    }
+                    prefs.edit()
+                        .putBoolean(KEY_LAST_LIVE, false)
+                        .putString(KEY_LAST_MSG_ID, currentId)
+                        .apply()
+                    showLiveNotification(
+                        1002,
+                        "⏹ Culto finalizado",
+                        "El directo ha terminado. ¡Gracias por acompañarnos! Ya puedes ver el culto anterior."
+                    )
                 }
             }
         } catch (_: Exception) {}
@@ -290,10 +235,10 @@ open class LiveNotificationService : Service() {
             val pendingIntent = PendingIntent.getActivity(this, id, intent, flags)
 
             val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            val iconRes = if (applicationInfo.icon != 0) applicationInfo.icon else android.R.drawable.ic_dialog_info
+            val smallIcon = android.R.drawable.stat_notify_chat
 
             val builder = NotificationCompat.Builder(this, LIVE_CHANNEL_ID)
-                .setSmallIcon(iconRes)
+                .setSmallIcon(smallIcon)
                 .setContentTitle(title)
                 .setContentText(text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -304,30 +249,19 @@ open class LiveNotificationService : Service() {
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
 
+            try {
+                val logoId = resources.getIdentifier("ic_launcher", "mipmap", packageName)
+                if (logoId != 0) {
+                    val bitmap = BitmapFactory.decodeResource(resources, logoId)
+                    if (bitmap != null) {
+                        builder.setLargeIcon(bitmap)
+                    }
+                }
+            } catch (_: Exception) {}
+
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.notify(id, builder.build())
         } catch (_: Exception) {}
-    }
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        try {
-            // Reiniciar el servicio usando AlarmManager tras cerrar la app desde la lista de recientes
-            val restartServiceIntent = Intent(applicationContext, LiveNotificationService::class.java).also {
-                it.setPackage(packageName)
-            }
-            val flags = PendingIntent.FLAG_ONE_SHOT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
-            val restartPendingIntent = PendingIntent.getService(this, 1, restartServiceIntent, flags)
-            val alarmManager = getSystemService(Context.ALARM_SERVICE) as? AlarmManager
-            alarmManager?.set(
-                AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                SystemClock.elapsedRealtime() + 1000,
-                restartPendingIntent
-            )
-        } catch (_: Exception) {}
-        try {
-            NotificationScheduler.scheduleNext(applicationContext)
-        } catch (_: Exception) {}
-        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
