@@ -687,6 +687,11 @@
     // ────────────────────────────────────────────
     // Señales y Notificaciones Push (Servidores de alta disponibilidad)
     // ────────────────────────────────────────────
+    const NTFY_LIVE_TOPICS = [
+      'https://ntfy.sh/iglesia-pan-bendito-live-channel-v1',
+      'https://ntfy.projectsegfau.lt/iglesia-pan-bendito-live-channel-v1',
+      'https://ntfy.envs.net/iglesia-pan-bendito-live-channel-v1'
+    ];
     const PRIMARY_SERVER  = 'https://ntfy.projectsegfau.lt';
     const FALLBACK_SERVER = 'https://ntfy.envs.net';
 
@@ -696,10 +701,11 @@
     const PRESENCE_TOPIC_FB = `${FALLBACK_SERVER}/iglesia-pan-bendito-presence-v1`;
 
     function sendRealtimeSignal(signal, notificationHeaders = {}) {
-      try {
-        fetch(LIVE_TOPIC, { method: 'POST', headers: notificationHeaders, body: signal }).catch(() => {});
-        fetch(LIVE_TOPIC_FB, { method: 'POST', headers: notificationHeaders, body: signal }).catch(() => {});
-      } catch (e) {}
+      NTFY_LIVE_TOPICS.forEach(topic => {
+        try {
+          fetch(topic, { method: 'POST', headers: notificationHeaders, body: signal }).catch(() => {});
+        } catch (e) {}
+      });
     }
 
     async function setLive() {
