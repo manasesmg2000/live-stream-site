@@ -11,6 +11,9 @@ class BootReceiver : BroadcastReceiver() {
             action == Intent.ACTION_MY_PACKAGE_REPLACED ||
             action == "android.intent.action.QUICKBOOT_POWERON") {
             try {
+                // WorkManager: la forma más fiable de ejecutar en segundo plano
+                LiveNotificationWorker.schedulePeriodicWork(context)
+                // Foreground service + alarmas como capa extra de respaldo
                 LiveNotificationService.start(context)
                 NotificationScheduler.scheduleNext(context)
             } catch (_: Exception) {}
