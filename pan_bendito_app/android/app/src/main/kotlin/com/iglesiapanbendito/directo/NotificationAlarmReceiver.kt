@@ -45,14 +45,11 @@ class NotificationAlarmReceiver : BroadcastReceiver() {
 
         Thread {
             try {
-                // 1. Asegurar que el servicio foreground esté corriendo
-                LiveNotificationService.start(context)
-
-                // 2. Comprobar si hay directo activo
+                // Comprobar directamente si hay emisión o si ha terminado
                 checkStreamAndNotify(context)
             } catch (_: Exception) {
             } finally {
-                // 3. Programar la siguiente comprobación
+                // Programar siempre la siguiente comprobación
                 NotificationScheduler.scheduleNext(context)
                 try {
                     if (wakeLock?.isHeld == true) {
@@ -68,7 +65,7 @@ class NotificationAlarmReceiver : BroadcastReceiver() {
         var isLive: Boolean? = null
         var videoId: String = ""
 
-        // 1. Probar ntfy en orden de prioridad
+        // 1. Consultar ntfy en orden de prioridad
         for (pollUrl in NTFY_POLL_URLS) {
             try {
                 val ntfyResp = fetchUrl(pollUrl)
