@@ -23,13 +23,14 @@ import java.net.URL
 class LiveNotificationService : Service() {
     private var isRunning = false
     private var workerThread: Thread? = null
-    private var lastKnownLiveState: Boolean? = null
-    private var lastKnownVideoId: String = ""
 
     companion object {
         const val LIVE_CHANNEL_ID = "pan_bendito_live"
         const val SERVICE_CHANNEL_ID = "pan_bendito_service"
         const val SERVICE_NOTIFICATION_ID = 9001
+        const val PREFS_NAME = "pan_bendito_stream_state"
+        const val KEY_LAST_LIVE = "last_live_state"
+        const val KEY_LAST_NOTIFIED_VID = "last_notified_vid"
 
         val NTFY_SSE_SERVERS = listOf(
             "https://ntfy.sh/iglesia-pan-bendito-live-channel-v1/sse",
@@ -107,7 +108,6 @@ class LiveNotificationService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            // 1. Canal silencioso para el servicio en primer plano
             val serviceChannel = NotificationChannel(
                 SERVICE_CHANNEL_ID,
                 "Servicio de Segundo Plano",
@@ -118,7 +118,6 @@ class LiveNotificationService : Service() {
             }
             manager.createNotificationChannel(serviceChannel)
 
-            // 2. Canal prioritario para alertas de directos
             val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             val audioAttrs = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION)
@@ -153,7 +152,7 @@ class LiveNotificationService : Service() {
                     val url = URL(serverUrl)
                     val conn = url.openConnection() as HttpURLConnection
                     conn.connectTimeout = 12000
-                    conn.readTimeout = 45000 // Timeout si no hay pings de ntfy
+                    conn.readTimeout = 45000
                     conn.setRequestProperty("Accept", "text/event-stream")
                     conn.setRequestProperty("User-Agent", "PanBenditoApp/1.0")
 
@@ -171,11 +170,9 @@ class LiveNotificationService : Service() {
                         reader.close()
                     }
                 } catch (_: Exception) {
-                    // Si falla la conexión SSE, rotar al siguiente servidor
                     currentServerIndex++
                 }
 
-                // Fallback directo a GitHub si SSE se desconectó
                 if (!sseConnected || !isRunning) {
                     try {
                         checkGitHubConfigFallback()
@@ -189,7 +186,7 @@ class LiveNotificationService : Service() {
                 }
             }
         }.apply {
-            isDaemon = false // NO daemon para que sobreviva a la finalización de hilos secundarios
+            isDaemon = false
             name = "PanBendito-SSE-Worker"
             start()
         }
@@ -202,12 +199,18 @@ class LiveNotificationService : Service() {
             val msg = json.optString("message", "").trim()
 
             if (event == "message" && msg.isNotEmpty()) {
+                val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val wasLive = prefs.getBoolean(KEY_LAST_LIVE, false)
+                val lastVid = prefs.getString(KEY_LAST_NOTIFIED_VID, "") ?: ""
+
                 if (msg.startsWith("LIVE:")) {
                     val payload = msg.substring(5)
                     val videoId = payload.split("|").getOrNull(0)?.trim() ?: ""
-                    if (videoId.isNotEmpty() && (lastKnownLiveState != true || lastKnownVideoId != videoId)) {
-                        lastKnownLiveState = true
-                        lastKnownVideoId = videoId
+                    if (videoId.isNotEmpty() && (!wasLive || lastVid != videoId)) {
+                        prefs.edit()
+                            .putBoolean(KEY_LAST_LIVE, true)
+                            .putString(KEY_LAST_NOTIFIED_VID, videoId)
+                            .apply()
                         showLiveNotification(
                             1001,
                             "🔴 ¡Estamos EN DIRECTO!",
@@ -215,8 +218,10 @@ class LiveNotificationService : Service() {
                         )
                     }
                 } else if (msg.startsWith("OFFLINE")) {
-                    if (lastKnownLiveState == true) {
-                        lastKnownLiveState = false
+                    if (wasLive) {
+                        prefs.edit()
+                            .putBoolean(KEY_LAST_LIVE, false)
+                            .apply()
                         showLiveNotification(
                             1002,
                             "⏹ Culto finalizado",
@@ -244,18 +249,26 @@ class LiveNotificationService : Service() {
                 val live = json.optBoolean("live", false)
                 val videoId = json.optString("videoId", "").trim()
 
+                val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val wasLive = prefs.getBoolean(KEY_LAST_LIVE, false)
+                val lastVid = prefs.getString(KEY_LAST_NOTIFIED_VID, "") ?: ""
+
                 if (live && videoId.isNotEmpty()) {
-                    if (lastKnownLiveState != true || lastKnownVideoId != videoId) {
-                        lastKnownLiveState = true
-                        lastKnownVideoId = videoId
+                    if (!wasLive || lastVid != videoId) {
+                        prefs.edit()
+                            .putBoolean(KEY_LAST_LIVE, true)
+                            .putString(KEY_LAST_NOTIFIED_VID, videoId)
+                            .apply()
                         showLiveNotification(
                             1001,
                             "🔴 ¡Estamos EN DIRECTO!",
                             "Ha comenzado el culto en directo de Pan Bendito. Toca para verlo."
                         )
                     }
-                } else if (!live && lastKnownLiveState == true) {
-                    lastKnownLiveState = false
+                } else if (!live && wasLive) {
+                    prefs.edit()
+                        .putBoolean(KEY_LAST_LIVE, false)
+                        .apply()
                     showLiveNotification(
                         1002,
                         "⏹ Culto finalizado",
@@ -297,8 +310,6 @@ class LiveNotificationService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         try {
             NotificationScheduler.scheduleNext(applicationContext)
-            // Relanzar servicio si el usuario desliza la app de la lista de recientes
-            LiveNotificationService.start(applicationContext)
         } catch (_: Exception) {}
         super.onTaskRemoved(rootIntent)
     }
@@ -309,7 +320,6 @@ class LiveNotificationService : Service() {
         workerThread = null
         try {
             NotificationScheduler.scheduleNext(applicationContext)
-            LiveNotificationService.start(applicationContext)
         } catch (_: Exception) {}
         super.onDestroy()
     }
