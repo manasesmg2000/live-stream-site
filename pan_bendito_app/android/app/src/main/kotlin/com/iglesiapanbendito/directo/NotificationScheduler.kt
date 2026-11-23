@@ -7,7 +7,7 @@ import android.content.Intent
 import android.os.Build
 
 object NotificationScheduler {
-    private const val INTERVAL_MS = 60000L // Comprobación cada 60 segundos
+    private const val INTERVAL_MS = 30000L // Sondeo en segundo plano cada 30 segundos
 
     fun scheduleNext(context: Context) {
         try {
