@@ -7,7 +7,7 @@ import android.content.Intent
 import android.os.Build
 
 object NotificationScheduler {
-    private const val INTERVAL_MS = 60000L // 60 segundos de sondeo periódico de respaldo
+    private const val INTERVAL_MS = 60000L // Comprobación cada 60 segundos
 
     fun scheduleNext(context: Context) {
         try {
@@ -19,7 +19,6 @@ object NotificationScheduler {
             val triggerTime = System.currentTimeMillis() + INTERVAL_MS
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // En Android 12+ (API 31/33/34), verificar si la app tiene permiso de alarmas exactas
                 if (alarmManager.canScheduleExactAlarms()) {
                     alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
