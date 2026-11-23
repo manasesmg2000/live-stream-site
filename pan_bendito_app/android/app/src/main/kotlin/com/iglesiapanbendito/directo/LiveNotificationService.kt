@@ -1,5 +1,6 @@
 package com.iglesiapanbendito.directo
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -12,6 +13,7 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
@@ -20,7 +22,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
-class LiveNotificationService : Service() {
+open class LiveNotificationService : Service() {
     private var isRunning = false
     private var workerThread: Thread? = null
 
@@ -308,6 +310,20 @@ class LiveNotificationService : Service() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        try {
+            // Reiniciar el servicio usando AlarmManager tras cerrar la app desde la lista de recientes
+            val restartServiceIntent = Intent(applicationContext, LiveNotificationService::class.java).also {
+                it.setPackage(packageName)
+            }
+            val flags = PendingIntent.FLAG_ONE_SHOT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            val restartPendingIntent = PendingIntent.getService(this, 1, restartServiceIntent, flags)
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+            alarmManager?.set(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime() + 1000,
+                restartPendingIntent
+            )
+        } catch (_: Exception) {}
         try {
             NotificationScheduler.scheduleNext(applicationContext)
         } catch (_: Exception) {}
