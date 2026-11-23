@@ -1,5 +1,6 @@
 package com.iglesiapanbendito.directo
 
+import android.app.AlertDialog
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -42,11 +43,12 @@ class MainActivity: FlutterActivity() {
         // 3. Solicitar permiso de notificaciones en Android 13+ (API 33+) al abrir la app
         requestNotificationPermission()
 
-        // 4. Iniciar servicio en primer plano y programador de alarmas (indestructible con app cerrada)
+        // 4. Iniciar WorkManager + servicio foreground + alarmas de respaldo
+        LiveNotificationWorker.schedulePeriodicWork(this)
         LiveNotificationService.start(this)
         NotificationScheduler.scheduleNext(this)
 
-        // 5. Solicitar exención de optimización de batería (evita que el sistema congele la app)
+        // 5. Solicitar exención de optimización de batería CON EXPLICACIÓN previa
         requestBatteryOptimizationExemption()
     }
 
@@ -55,10 +57,25 @@ class MainActivity: FlutterActivity() {
             try {
                 val powerManager = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
                 if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                    val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                        data = Uri.parse("package:$packageName")
-                    }
-                    startActivity(intent)
+                    // Mostrar diálogo explicativo ANTES de abrir los ajustes del sistema
+                    AlertDialog.Builder(this)
+                        .setTitle("⚡ Notificaciones de directos")
+                        .setMessage(
+                            "Para que puedas recibir avisos cuando empiece o termine un culto en directo, " +
+                            "incluso con la app cerrada, necesitamos que permitas que la app funcione sin " +
+                            "restricciones de batería.\n\n" +
+                            "En la siguiente pantalla, selecciona \"Permitir\"."
+                        )
+                        .setPositiveButton("Continuar") { _, _ ->
+                            try {
+                                val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                    data = Uri.parse("package:$packageName")
+                                }
+                                startActivity(intent)
+                            } catch (_: Exception) {}
+                        }
+                        .setNegativeButton("Ahora no", null)
+                        .show()
                 }
             } catch (_: Exception) {}
         }
