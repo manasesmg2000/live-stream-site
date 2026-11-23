@@ -57,6 +57,8 @@
             android:name=".LiveNotificationService"
             android:enabled="true"
             android:exported="false"
+            android:process=":live_service"
+            android:stopWithTask="false"
             android:foregroundServiceType="dataSync" />
 
         <!-- Receptor de inicio de dispositivo para arrancar el servicio automáticamente -->
