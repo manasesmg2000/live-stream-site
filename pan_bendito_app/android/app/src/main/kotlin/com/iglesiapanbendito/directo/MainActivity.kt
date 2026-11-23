@@ -197,14 +197,28 @@ open class MainActivity: FlutterActivity() {
                 PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
             )
 
+            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val smallIcon = android.R.drawable.stat_notify_chat
+
             val builder = NotificationCompat.Builder(this, "pan_bendito_live")
-                .setSmallIcon(applicationInfo.icon)
+                .setSmallIcon(smallIcon)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(message))
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setSound(soundUri)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
+
+            try {
+                val logoId = resources.getIdentifier("ic_launcher", "mipmap", packageName)
+                if (logoId != 0) {
+                    val bitmap = BitmapFactory.decodeResource(resources, logoId)
+                    if (bitmap != null) {
+                        builder.setLargeIcon(bitmap)
+                    }
+                }
+            } catch (_: Exception) {}
 
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.notify(777, builder.build())
