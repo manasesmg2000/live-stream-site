@@ -53,6 +53,8 @@ jobs:
           if [ -d "backup_native/kotlin" ]; then
             cp -rf backup_native/kotlin/* android/app/src/main/kotlin/ 2>/dev/null || true
           fi
+          # Limpiar template redundante generado por flutter create
+          rm -f android/app/src/main/kotlin/com/iglesiapanbendito/pan_bendito_app/MainActivity.kt || true
           
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "backup_native/AndroidManifest.xml" ]; then
@@ -62,16 +64,22 @@ jobs:
             sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />\n    <queries>\n        <package android:name="com.google.android.youtube" />\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="vnd.youtube" />\n        </intent>\n    </queries>' "$MANIFEST"
           fi
 
-          # Desactivar lint en release (inyectar en app/build.gradle.kts si existe, si no en build.gradle)
+          # Desactivar lint y shrinking para conservar todos los servicios y receptores
           APP_BG="android/app/build.gradle.kts"
           APP_BG_GROOVY="android/app/build.gradle"
           if [ -f "$APP_BG" ]; then
             echo '' >> "$APP_BG"
             echo 'android { lint { checkReleaseBuilds = false; abortOnError = false } }' >> "$APP_BG"
+            echo 'android { buildTypes { getByName("release") { isMinifyEnabled = false; isShrinkResources = false } } }' >> "$APP_BG"
           elif [ -f "$APP_BG_GROOVY" ]; then
             echo '' >> "$APP_BG_GROOVY"
             echo 'android { lintOptions { checkReleaseBuilds false; abortOnError false } }' >> "$APP_BG_GROOVY"
+            echo 'android { buildTypes { release { minifyEnabled false; shrinkResources false } } }' >> "$APP_BG_GROOVY"
           fi
+          mkdir -p android/app
+          echo '-keep class com.iglesiapanbendito.** { *; }' >> android/app/proguard-rules.pro
+          echo '-keepclassmembers class com.iglesiapanbendito.** { *; }' >> android/app/proguard-rules.pro
+          echo '-dontwarn com.iglesiapanbendito.**' >> android/app/proguard-rules.pro
 
           # Configurar certificado release permanente (para que no cambie la firma en cada build)
           if [ -f "panbendito.keystore.b64" ]; then
@@ -102,7 +110,7 @@ jobs:
 
       - name: Compilar APK Release
         working-directory: ./pan_bendito_app
-        run: flutter build apk --release
+        run: flutter build apk --release --no-shrink
 
       - name: Renombrar y firmar con certificado Release oficial (Play Protect)
         working-directory: ./pan_bendito_app
