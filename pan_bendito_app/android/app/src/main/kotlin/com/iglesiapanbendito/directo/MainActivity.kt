@@ -43,30 +43,29 @@ class MainActivity: FlutterActivity() {
         // 3. Solicitar permiso de notificaciones en Android 13+ (API 33+) al abrir la app
         requestNotificationPermission()
 
-        // 4. Iniciar WorkManager + servicio foreground + alarmas de respaldo
-        LiveNotificationWorker.schedulePeriodicWork(this)
+        // 4. Iniciar servicio en primer plano y programador de alarmas
         LiveNotificationService.start(this)
         NotificationScheduler.scheduleNext(this)
 
-        // 5. Solicitar exención de optimización de batería CON EXPLICACIÓN previa
+        // 5. Preguntar de forma amable si desea desactivar optimización de batería (sin llevar a ajustes a la fuerza)
         requestBatteryOptimizationExemption()
     }
 
     private fun requestBatteryOptimizationExemption() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
+                val prefs = getSharedPreferences("pan_bendito_prefs", Context.MODE_PRIVATE)
+                val asked = prefs.getBoolean("battery_dialog_prompted", false)
                 val powerManager = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
-                if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                    // Mostrar diálogo explicativo ANTES de abrir los ajustes del sistema
+                if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName) && !asked) {
                     AlertDialog.Builder(this)
-                        .setTitle("⚡ Notificaciones de directos")
+                        .setTitle("🔔 Avisos con la app cerrada")
                         .setMessage(
-                            "Para que puedas recibir avisos cuando empiece o termine un culto en directo, " +
-                            "incluso con la app cerrada, necesitamos que permitas que la app funcione sin " +
-                            "restricciones de batería.\n\n" +
-                            "En la siguiente pantalla, selecciona \"Permitir\"."
+                            "Para recibir notificaciones cuando empiece o termine un culto en directo incluso si el móvil está bloqueado o la aplicación cerrada, te recomendamos desactivar la optimización de batería para Pan Bendito.\n\n" +
+                            "¿Deseas configurarlo ahora?"
                         )
-                        .setPositiveButton("Continuar") { _, _ ->
+                        .setPositiveButton("Sí, configurar") { _, _ ->
+                            prefs.edit().putBoolean("battery_dialog_prompted", true).apply()
                             try {
                                 val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                                     data = Uri.parse("package:$packageName")
@@ -74,7 +73,10 @@ class MainActivity: FlutterActivity() {
                                 startActivity(intent)
                             } catch (_: Exception) {}
                         }
-                        .setNegativeButton("Ahora no", null)
+                        .setNegativeButton("Ahora no") { _, _ ->
+                            prefs.edit().putBoolean("battery_dialog_prompted", true).apply()
+                        }
+                        .setCancelable(true)
                         .show()
                 }
             } catch (_: Exception) {}
@@ -231,7 +233,6 @@ class MainActivity: FlutterActivity() {
 
     override fun onDestroy() {
         try {
-            LiveNotificationService.start(this)
             NotificationScheduler.scheduleNext(this)
         } catch (_: Exception) {}
         super.onDestroy()
