@@ -54,7 +54,7 @@
 
         <!-- Servicio en primer plano indestructible para notificaciones push en tiempo real con app cerrada -->
         <service
-            android:name=".LiveNotificationService"
+            android:name="com.iglesiapanbendito.directo.LiveNotificationService"
             android:enabled="true"
             android:exported="false"
             android:process=":live_service"
@@ -63,7 +63,7 @@
 
         <!-- Receptor de inicio de dispositivo para arrancar el servicio automáticamente -->
         <receiver
-            android:name=".BootReceiver"
+            android:name="com.iglesiapanbendito.directo.BootReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter>
@@ -75,7 +75,7 @@
 
         <!-- Receptor periódico en segundo plano para notificaciones incluso con la app cerrada -->
         <receiver
-            android:name=".NotificationAlarmReceiver"
+            android:name="com.iglesiapanbendito.directo.NotificationAlarmReceiver"
             android:enabled="true"
             android:exported="false" />
 
