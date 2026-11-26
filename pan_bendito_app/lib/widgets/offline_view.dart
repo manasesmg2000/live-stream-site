@@ -6,12 +6,14 @@ class OfflineView extends StatelessWidget {
   final String lastVideoId;
   final VoidCallback? onWatchPrevious;
   final VoidCallback? onOpenBible;
+  final VoidCallback? onOpenCalendar;
 
   const OfflineView({
     super.key,
     this.lastVideoId = '',
     this.onWatchPrevious,
     this.onOpenBible,
+    this.onOpenCalendar,
   });
 
   Future<void> _openChannel() async {
@@ -129,6 +131,28 @@ class OfflineView extends StatelessWidget {
                   elevation: 5,
                 ),
                 onPressed: _openPreviousVideo,
+              ),
+              const SizedBox(height: 14),
+            ],
+
+            // Botón Calendario de Cultos
+            if (onOpenCalendar != null) ...[
+              ElevatedButton.icon(
+                icon: const Icon(Icons.calendar_month_rounded, color: Color(0xFF0D1624), size: 20),
+                label: const Text(
+                  'Ver Calendario de Cultos',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0D1624)),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE0B96B),
+                  foregroundColor: const Color(0xFF0D1624),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+                  elevation: 5,
+                ),
+                onPressed: onOpenCalendar,
               ),
               const SizedBox(height: 14),
             ],
