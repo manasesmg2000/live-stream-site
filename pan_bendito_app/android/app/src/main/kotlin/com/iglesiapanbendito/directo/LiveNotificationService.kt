@@ -145,6 +145,11 @@ open class LiveNotificationService : Service() {
 
             if (event == "message" && msg.isNotEmpty()) {
                 val currentId = json.optString("id", "").trim()
+                if (msg.startsWith("CALENDAR|")) {
+                    NotificationHelper.handleCalendarMessage(this, currentId, msg.substring(9))
+                    return
+                }
+
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 val lastProcessedId = prefs.getString(KEY_LAST_MSG_ID, "") ?: ""
 
