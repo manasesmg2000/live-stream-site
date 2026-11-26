@@ -115,7 +115,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       ..loadRequest(Uri.parse('$_adminUrl?_t=${DateTime.now().millisecondsSinceEpoch}'));
 
     if (_controller.platform is AndroidWebViewController) {
-      (_controller.platform as AndroidWebViewController).setOnShowFileChooser((params) async {
+      (_controller.platform as AndroidWebViewController).setOnShowFileSelector((params) async {
         try {
           final picker = ImagePicker();
           final XFile? file = await picker.pickImage(source: ImageSource.gallery);
