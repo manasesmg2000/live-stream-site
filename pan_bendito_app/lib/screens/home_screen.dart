@@ -7,6 +7,7 @@ import '../services/presence_service.dart';
 import '../widgets/stream_player.dart';
 import '../widgets/offline_view.dart';
 import 'bible_screen.dart';
+import 'calendar_screen.dart';
 import 'petitions_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,7 +22,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _userName;
   bool _showingPreviousVideo = false;
-  int _selectedNavIndex = 0; // 0: Directo, 1: Santa Biblia, 2: Peticiones
+  int _selectedNavIndex = 0; // 0: Directo, 1: Calendario, 2: Santa Biblia, 3: Peticiones
   final List<int> _tabHistory = [0];
   DateTime? _lastBackPressTime;
 
@@ -358,25 +359,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ],
                           IconButton(
                             icon: Icon(
-                              Icons.menu_book_rounded,
+                              Icons.calendar_month_rounded,
                               color: _selectedNavIndex == 1
                                   ? const Color(0xFFE0B96B)
                                   : const Color(0xFFE8EEF8),
                               size: 22,
                             ),
-                            tooltip: 'Santa Biblia (RV1960 y NTV)',
+                            tooltip: 'Calendario de Cultos',
                             onPressed: () => _switchTab(1),
                           ),
                           IconButton(
                             icon: Icon(
-                              Icons.volunteer_activism_rounded,
+                              Icons.menu_book_rounded,
                               color: _selectedNavIndex == 2
                                   ? const Color(0xFFE0B96B)
                                   : const Color(0xFFE8EEF8),
                               size: 22,
                             ),
-                            tooltip: 'Peticiones de Oración',
+                            tooltip: 'Santa Biblia (RV1960 y NTV)',
                             onPressed: () => _switchTab(2),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.volunteer_activism_rounded,
+                              color: _selectedNavIndex == 3
+                                  ? const Color(0xFFE0B96B)
+                                  : const Color(0xFFE8EEF8),
+                              size: 22,
+                            ),
+                            tooltip: 'Peticiones de Oración',
+                            onPressed: () => _switchTab(3),
                           ),
                           IconButton(
                             icon: const Icon(Icons.video_library_rounded,
@@ -398,6 +410,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         index: _selectedNavIndex,
         children: [
           _buildStreamTab(),
+          const CalendarScreen(),
           const BibleScreen(),
           PetitionsScreen(initialUserName: _userName),
         ],
@@ -410,6 +423,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
         child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
           currentIndex: _selectedNavIndex,
           onTap: _switchTab,
           backgroundColor: Colors.transparent,
@@ -423,6 +437,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               icon: Icon(Icons.live_tv_rounded),
               activeIcon: Icon(Icons.live_tv_rounded, color: Color(0xFFE0B96B)),
               label: 'Directo',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_month_rounded),
+              activeIcon: Icon(Icons.calendar_month_rounded, color: Color(0xFFE0B96B)),
+              label: 'Calendario',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.menu_book_rounded),
@@ -517,7 +536,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   _openChannel();
                                 }
                               },
-                              onOpenBible: () => _switchTab(1),
+                              onOpenCalendar: () => _switchTab(1),
+                              onOpenBible: () => _switchTab(2),
                             ),
                     ),
                   ),
