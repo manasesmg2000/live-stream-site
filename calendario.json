@@ -1,15 +1,3 @@
 {
-  "events": [
-    {
-      "id": "evt_1795717600920",
-      "date": "2026-11-28",
-      "time": "19:00",
-      "type": "culto",
-      "title": "Hgt",
-      "description": "Hhjj",
-      "isLiveStream": true,
-      "imageUrl": "",
-      "updatedAt": "2026-11-26T18:26:41.550Z"
-    }
-  ]
+  "events": []
 }
