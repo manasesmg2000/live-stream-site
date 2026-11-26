@@ -1,17 +1,6 @@
 {
   "events": [
     {
-      "id": "evt_1795717542725",
-      "date": "2026-11-27",
-      "time": "19:30",
-      "type": "culto_especial",
-      "title": "reunión de jovenes",
-      "description": "Especial juda",
-      "isLiveStream": true,
-      "imageUrl": "https://raw.githubusercontent.com/manasesmg2000/live-stream-site/main/calendar_images/evt_1795717542725.jpg?t=1795717545506",
-      "updatedAt": "2026-11-26T18:25:46.049Z"
-    },
-    {
       "id": "evt_1795717600920",
       "date": "2026-11-28",
       "time": "19:00",
