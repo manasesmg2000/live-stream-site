@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 void main() {
@@ -111,6 +113,19 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         ),
       )
       ..loadRequest(Uri.parse('$_adminUrl?_t=${DateTime.now().millisecondsSinceEpoch}'));
+
+    if (_controller.platform is AndroidWebViewController) {
+      (_controller.platform as AndroidWebViewController).setOnShowFileChooser((params) async {
+        try {
+          final picker = ImagePicker();
+          final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+          if (file != null) {
+            return [Uri.file(file.path).toString()];
+          }
+        } catch (_) {}
+        return [];
+      });
+    }
   }
 
   Future<bool> _handleWillPop() async {
