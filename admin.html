@@ -40,6 +40,7 @@
     /* ── TABS DE NAVEGACIÓN ── */
     .tabs {
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       background: #182234;
       padding: 6px;
@@ -51,12 +52,13 @@
     }
 
     .tab-btn {
-      flex: 1;
+      flex: 1 1 auto;
+      min-width: 100px;
       background: transparent;
       border: none;
       color: #8fa5c7;
-      padding: 10px 14px;
-      font-size: 0.88rem;
+      padding: 10px 12px;
+      font-size: 0.85rem;
       font-weight: 600;
       border-radius: 8px;
       cursor: pointer;
@@ -255,6 +257,147 @@
       display: flex;
       gap: 10px;
     }
+
+    input[type="date"],
+    input[type="time"],
+    textarea {
+      width: 100%;
+      background: #0d1422;
+      border: 1px solid #2e4168;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.92rem;
+      padding: 11px 14px;
+      outline: none;
+      font-family: inherit;
+      transition: border 0.2s;
+    }
+    input[type="date"]:focus,
+    input[type="time"]:focus,
+    textarea:focus { border-color: #e0b96b; }
+
+    .cal-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .cal-type-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .cal-type-btn {
+      background: #0d1422;
+      border: 1px solid #2e4168;
+      color: #8fa5c7;
+      border-radius: 10px;
+      padding: 10px 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .cal-type-btn.selected[data-type="culto"] {
+      background: rgba(52, 152, 219, 0.2);
+      border-color: #3498db;
+      color: #8ecae6;
+    }
+    .cal-type-btn.selected[data-type="culto_especial"] {
+      background: rgba(224, 185, 107, 0.2);
+      border-color: #e0b96b;
+      color: #f3d285;
+    }
+    .cal-type-btn.selected[data-type="reunion"] {
+      background: rgba(46, 204, 113, 0.2);
+      border-color: #2ecc71;
+      color: #7ee2a8;
+    }
+
+    .cal-toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #0d1422;
+      border: 1px solid #263654;
+      border-radius: 10px;
+      padding: 11px 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .cal-toggle-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #e0b96b;
+      cursor: pointer;
+    }
+    .cal-toggle-row span {
+      font-size: 0.88rem;
+      color: #e8eef8;
+      font-weight: 600;
+    }
+
+    .cal-img-preview {
+      width: 100%;
+      max-height: 220px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid #2e4168;
+      display: none;
+      margin-top: 8px;
+    }
+
+    .cal-event-card {
+      background: #10192b;
+      border: 1px solid #263654;
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .cal-event-card.especial {
+      border-color: rgba(224, 185, 107, 0.65);
+      background: linear-gradient(180deg, rgba(224,185,107,0.08) 0%, #10192b 100%);
+    }
+    .cal-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .cal-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .cal-badge.culto { background: rgba(52, 152, 219, 0.2); color: #8ecae6; border: 1px solid rgba(52,152,219,0.4); }
+    .cal-badge.culto_especial { background: rgba(224, 185, 107, 0.22); color: #f5d68a; border: 1px solid rgba(224,185,107,0.55); }
+    .cal-badge.reunion { background: rgba(46, 204, 113, 0.18); color: #7ee2a8; border: 1px solid rgba(46,204,113,0.4); }
+    .cal-badge.live { background: rgba(231, 76, 60, 0.22); color: #ff8a80; border: 1px solid rgba(231,76,60,0.5); }
+    .cal-badge.presencial { background: rgba(112, 144, 192, 0.15); color: #9db3d4; border: 1px solid rgba(112,144,192,0.3); }
+
+    .btn-sm {
+      border: none;
+      border-radius: 7px;
+      padding: 7px 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-edit { background: #243b61; }
+    .btn-notify { background: #b8860b; }
+    .btn-del { background: #8e2424; }
   </style>
 </head>
 <body>
@@ -267,6 +410,7 @@
   <!-- Pestañas -->
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('directo')">📡 Directo</button>
+    <button class="tab-btn" onclick="switchTab('calendario')">📅 Calendario</button>
     <button class="tab-btn" onclick="switchTab('usuarios')">👥 Usuarios (<span id="tab-count">0</span>)</button>
     <button class="tab-btn" onclick="switchTab('peticiones')">🙏 Peticiones (<span id="tab-pet-count">0</span>)</button>
     <button class="tab-btn" onclick="switchTab('configuracion')">⚙️ Ajustes</button>
@@ -431,6 +575,88 @@
 
   </div>
 
+  <!-- ══════════ PESTAÑA CALENDARIO DE CULTOS ══════════ -->
+  <div id="tab-calendario" class="tab-content">
+    <div class="card">
+      <h2>
+        <span id="cal-form-title">📅 Nuevo evento en el Calendario</span>
+        <button id="cal-cancel-edit-btn" class="btn-sm btn-del" style="display:none;" onclick="resetCalForm()">✖ Cancelar edición</button>
+      </h2>
+
+      <input type="hidden" id="cal-edit-id" value="" />
+
+      <div class="cal-grid-2">
+        <div>
+          <label>Fecha</label>
+          <input type="date" id="cal-date" />
+        </div>
+        <div>
+          <label>Hora</label>
+          <input type="time" id="cal-time" value="19:00" />
+        </div>
+      </div>
+
+      <div>
+        <label>Tipo de actividad</label>
+        <div class="cal-type-group">
+          <button type="button" class="cal-type-btn selected" data-type="culto" onclick="selectCalType('culto')">⛪ Culto</button>
+          <button type="button" class="cal-type-btn" data-type="culto_especial" onclick="selectCalType('culto_especial')">✨ Culto Especial</button>
+          <button type="button" class="cal-type-btn" data-type="reunion" onclick="selectCalType('reunion')">🤝 Reunión</button>
+        </div>
+      </div>
+
+      <div>
+        <label>Título</label>
+        <input type="text" id="cal-title" placeholder="Ej: Culto Dominical / Reunión de Oración" />
+      </div>
+
+      <div>
+        <label>Descripción o detalles (opcional)</label>
+        <textarea id="cal-description" rows="2" placeholder="Ej: Predica el Pastor..., habrá cena fraternal, etc."></textarea>
+      </div>
+
+      <label class="cal-toggle-row">
+        <input type="checkbox" id="cal-is-live" checked />
+        <span>📺 Se emitirá en directo (en la App y YouTube)</span>
+      </label>
+
+      <div>
+        <label>Imagen del evento (opcional — recomendada para Culto Especial)</label>
+        <input type="file" id="cal-image-file" accept="image/*" onchange="handleCalImageSelect(event)" style="color:#a0b9dc; font-size:0.85rem; margin-bottom:8px;" />
+        <input type="text" id="cal-image-url" placeholder="O pega una URL de imagen (opcional)" oninput="updateCalPreviewFromUrl()" />
+        <img id="cal-img-preview" class="cal-img-preview" alt="Vista previa" />
+        <button type="button" id="cal-clear-img-btn" class="btn-sm btn-del" style="display:none; margin-top:8px;" onclick="clearCalImage()">🗑️ Quitar imagen</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px; border-top:1px solid #263654; padding-top:12px;">
+        <label class="cal-toggle-row">
+          <input type="checkbox" id="cal-notify-on-save" checked />
+          <span>🔔 Lanzar notificación a todos al guardar</span>
+        </label>
+        <label class="cal-toggle-row" id="cal-notify-img-row">
+          <input type="checkbox" id="cal-notify-with-image" checked />
+          <span>🖼️ Incluir imagen en la notificación (si tiene imagen)</span>
+        </label>
+      </div>
+
+      <button class="btn btn-action" onclick="saveCalendarEvent()">💾 Guardar en Calendario</button>
+      <div id="cal-save-status" class="status-box"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2>📆 Eventos del Calendario</h2>
+        <button class="btn btn-action" style="width:auto; padding:6px 12px; font-size:0.8rem;" onclick="loadCalendarAdmin()">🔄 Recargar</button>
+      </div>
+      <p style="font-size:0.82rem; color:#8fa5c7; margin-top:-8px;">
+        Puedes añadir varios horarios en un mismo día (por ejemplo, Reunión y Culto). Pulsa Editar para modificar o Notificar para enviar aviso inmediato.
+      </p>
+      <div id="cal-events-list" style="display:flex; flex-direction:column; gap:12px;">
+        <div style="text-align:center; color:#7090c0; padding:16px;">Cargando calendario...</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ══════════ PESTAÑA 4: CONFIGURACIÓN GITHUB ══════════ -->
   <div id="tab-configuracion" class="tab-content">
     <div class="card">
@@ -474,15 +700,18 @@
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', 
           (tabId === 'directo' && i === 0) ||
-          (tabId === 'usuarios' && i === 1) ||
-          (tabId === 'peticiones' && i === 2) ||
-          (tabId === 'configuracion' && i === 3)
+          (tabId === 'calendario' && i === 1) ||
+          (tabId === 'usuarios' && i === 2) ||
+          (tabId === 'peticiones' && i === 3) ||
+          (tabId === 'configuracion' && i === 4)
         );
       });
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       const activeContent = document.getElementById('tab-' + tabId);
       if (activeContent) activeContent.classList.add('active');
-      if (tabId === 'peticiones') {
+      if (tabId === 'calendario') {
+        loadCalendarAdmin();
+      } else if (tabId === 'peticiones') {
         loadPublishedPetitionsAdmin();
         checkPendingPetitions();
       }
@@ -1420,6 +1649,430 @@
       } catch(e) {
         showStatus('pet-save-status', 'error', `⚠️ Retirada en tiempo real, pero aviso en GitHub: ${e.message}`);
       }
+    }
+
+    // ────────────────────────────────────────────
+    // Calendario de Cultos y Reuniones
+    // ────────────────────────────────────────────
+    const CALENDAR_PATH = 'calendario.json';
+    let calendarEventsCache = [];
+    let selectedCalType = 'culto';
+    let pendingCalImageBase64 = null; // Solo base64 sin prefijo data:image/...
+
+    function initCalDateDefault() {
+      const dateEl = document.getElementById('cal-date');
+      if (dateEl && !dateEl.value) {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        dateEl.value = `${yyyy}-${mm}-${dd}`;
+      }
+    }
+
+    function selectCalType(type) {
+      selectedCalType = type;
+      document.querySelectorAll('.cal-type-btn').forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.type === type);
+      });
+    }
+
+    function handleCalImageSelect(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const maxW = 1080;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxW) {
+            h = Math.round((h * maxW) / w);
+            w = maxW;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          pendingCalImageBase64 = dataUrl.split(',')[1];
+          const preview = document.getElementById('cal-img-preview');
+          preview.src = dataUrl;
+          preview.style.display = 'block';
+          document.getElementById('cal-clear-img-btn').style.display = 'inline-flex';
+          document.getElementById('cal-image-url').value = '';
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function updateCalPreviewFromUrl() {
+      const url = document.getElementById('cal-image-url').value.trim();
+      const preview = document.getElementById('cal-img-preview');
+      const clearBtn = document.getElementById('cal-clear-img-btn');
+      if (url) {
+        pendingCalImageBase64 = null;
+        document.getElementById('cal-image-file').value = '';
+        preview.src = url;
+        preview.style.display = 'block';
+        clearBtn.style.display = 'inline-flex';
+      } else if (!pendingCalImageBase64) {
+        preview.style.display = 'none';
+        clearBtn.style.display = 'none';
+      }
+    }
+
+    function clearCalImage() {
+      pendingCalImageBase64 = null;
+      document.getElementById('cal-image-file').value = '';
+      document.getElementById('cal-image-url').value = '';
+      document.getElementById('cal-img-preview').style.display = 'none';
+      document.getElementById('cal-clear-img-btn').style.display = 'none';
+    }
+
+    function resetCalForm() {
+      document.getElementById('cal-edit-id').value = '';
+      document.getElementById('cal-form-title').textContent = '📅 Nuevo evento en el Calendario';
+      document.getElementById('cal-cancel-edit-btn').style.display = 'none';
+      document.getElementById('cal-title').value = '';
+      document.getElementById('cal-description').value = '';
+      document.getElementById('cal-time').value = '19:00';
+      document.getElementById('cal-is-live').checked = true;
+      document.getElementById('cal-notify-on-save').checked = true;
+      document.getElementById('cal-notify-with-image').checked = true;
+      selectCalType('culto');
+      clearCalImage();
+      initCalDateDefault();
+    }
+
+    function formatCalDateEs(isoDate) {
+      if (!isoDate) return '';
+      const parts = isoDate.split('-');
+      if (parts.length !== 3) return isoDate;
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+      const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      return `${dias[d.getDay()]} ${d.getDate()} ${meses[d.getMonth()]}`;
+    }
+
+    async function readCalendarFromGitHub() {
+      const s = getSettings();
+      if (s.token && s.user && s.repo) {
+        try {
+          const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${CALENDAR_PATH}?ref=${encodeURIComponent(s.branch)}&_t=${Date.now()}`;
+          const res = await fetch(url, {
+            headers: {
+              'Authorization': `token ${s.token}`,
+              'Accept': 'application/vnd.github.v3+json',
+            },
+            cache: 'no-store'
+          });
+          if (res.status === 404) {
+            return { events: [], sha: null };
+          }
+          if (res.ok) {
+            const data = await res.json();
+            const binary = atob(data.content.replace(/\n/g, ''));
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const jsonText = new TextDecoder().decode(bytes);
+            const parsed = JSON.parse(jsonText);
+            return { events: Array.isArray(parsed.events) ? parsed.events : [], sha: data.sha };
+          }
+        } catch (e) {
+          console.warn('Error leyendo calendario via API:', e);
+        }
+      }
+      try {
+        const res = await fetch(`./${CALENDAR_PATH}?_t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const parsed = await res.json();
+          return { events: Array.isArray(parsed.events) ? parsed.events : [], sha: null };
+        }
+      } catch (_) {}
+      return { events: [], sha: null };
+    }
+
+    async function uploadCalendarImageToGitHub(eventId, base64Data) {
+      const s = getSettings();
+      const imgPath = `calendar_images/${eventId}.jpg`;
+      const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${imgPath}`;
+      let existingSha = null;
+      try {
+        const checkRes = await fetch(`${url}?ref=${encodeURIComponent(s.branch)}&_t=${Date.now()}`, {
+          headers: { 'Authorization': `token ${s.token}`, 'Accept': 'application/vnd.github.v3+json' },
+          cache: 'no-store'
+        });
+        if (checkRes.ok) {
+          const d = await checkRes.json();
+          existingSha = d.sha;
+        }
+      } catch (_) {}
+
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${s.token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: `🖼️ Imagen calendario (${eventId})`,
+          content: base64Data,
+          sha: existingSha || undefined,
+          branch: s.branch,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Error subiendo imagen (${res.status}): ${err}`);
+      }
+      return `https://raw.githubusercontent.com/${s.user}/${s.repo}/${s.branch}/${imgPath}?t=${Date.now()}`;
+    }
+
+    async function writeCalendarToGitHub(events, sha, commitMsg) {
+      const s = getSettings();
+      if (!s.token || !s.user || !s.repo) {
+        throw new Error('Configura primero el usuario, repositorio y token de GitHub en Ajustes.');
+      }
+      const sorted = [...events].sort((a, b) => {
+        const keyA = `${a.date || ''} ${a.time || ''}`;
+        const keyB = `${b.date || ''} ${b.time || ''}`;
+        return keyA.localeCompare(keyB);
+      });
+      const jsonStr = JSON.stringify({ events: sorted }, null, 2) + '\n';
+      const bytes = new TextEncoder().encode(jsonStr);
+      let binary = '';
+      bytes.forEach(b => binary += String.fromCharCode(b));
+      const contentB64 = btoa(binary);
+
+      const url = `https://api.github.com/repos/${s.user}/${s.repo}/contents/${CALENDAR_PATH}`;
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${s.token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: commitMsg || '📅 Actualizar calendario de cultos',
+          content: contentB64,
+          sha: sha || undefined,
+          branch: s.branch,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`GitHub (${res.status}): ${err}`);
+      }
+      calendarEventsCache = sorted;
+      return sorted;
+    }
+
+    function sendCalendarNotificationPayload(ev, includeImage) {
+      const typeLabel = ev.type === 'culto_especial'
+        ? '✨ Culto Especial'
+        : (ev.type === 'reunion' ? '🤝 Reunión' : '⛪ Culto');
+      const liveLabel = ev.isLiveStream ? '📺 En directo' : '⛪ Solo presencial';
+      const dateLabel = formatCalDateEs(ev.date);
+      const title = `${typeLabel} — ${dateLabel} · ${ev.time}h`;
+      const parts = [ev.title || typeLabel];
+      if (ev.description) parts.push(ev.description);
+      parts.push(liveLabel);
+      const body = parts.join(' · ');
+
+      const payload = {
+        eventId: ev.id,
+        title: title,
+        body: body,
+        imageUrl: (includeImage && ev.imageUrl) ? ev.imageUrl : '',
+        type: ev.type,
+        date: ev.date,
+        time: ev.time,
+        isLiveStream: !!ev.isLiveStream
+      };
+
+      const msg = 'CALENDAR|' + JSON.stringify(payload);
+      NTFY_LIVE_TOPICS.forEach(topic => {
+        fetch(topic, {
+          method: 'POST',
+          headers: {
+            'Title': title,
+            'Priority': 'high',
+            'Tags': ev.type === 'culto_especial' ? 'sparkles,calendar' : 'calendar',
+            'Click': 'https://manasesmg2000.github.io/live-stream-site/',
+          },
+          body: msg,
+        }).catch(() => {});
+      });
+    }
+
+    async function saveCalendarEvent() {
+      const s = getSettings();
+      if (!s.token || !s.user || !s.repo) {
+        showStatus('cal-save-status', 'error', '⚠️ Configura tu token de GitHub en Ajustes primero.');
+        return;
+      }
+
+      const editId = document.getElementById('cal-edit-id').value.trim();
+      const date = document.getElementById('cal-date').value.trim();
+      const time = document.getElementById('cal-time').value.trim();
+      const title = document.getElementById('cal-title').value.trim();
+      const description = document.getElementById('cal-description').value.trim();
+      const isLiveStream = document.getElementById('cal-is-live').checked;
+      let imageUrl = document.getElementById('cal-image-url').value.trim();
+      const notifyOnSave = document.getElementById('cal-notify-on-save').checked;
+      const notifyWithImage = document.getElementById('cal-notify-with-image').checked;
+
+      if (!date || !time) {
+        showStatus('cal-save-status', 'error', '⚠️ Indica la fecha y la hora del evento.');
+        return;
+      }
+      if (!title) {
+        showStatus('cal-save-status', 'error', '⚠️ Escribe un título para el culto o reunión.');
+        return;
+      }
+
+      const eventId = editId || ('evt_' + Date.now());
+      showStatus('cal-save-status', 'pending', '⏳ Guardando evento en el calendario...');
+
+      try {
+        if (pendingCalImageBase64) {
+          showStatus('cal-save-status', 'pending', '🖼️ Subiendo imagen a GitHub...');
+          imageUrl = await uploadCalendarImageToGitHub(eventId, pendingCalImageBase64);
+        }
+
+        const { events, sha } = await readCalendarFromGitHub();
+        const newEvent = {
+          id: eventId,
+          date,
+          time,
+          type: selectedCalType,
+          title,
+          description,
+          isLiveStream,
+          imageUrl,
+          updatedAt: new Date().toISOString(),
+        };
+
+        const idx = events.findIndex(e => e.id === eventId);
+        if (idx >= 0) {
+          events[idx] = newEvent;
+        } else {
+          events.push(newEvent);
+        }
+
+        await writeCalendarToGitHub(events, sha, editId ? `✏️ Editar evento ${title}` : `📅 Añadir evento ${title}`);
+
+        if (notifyOnSave) {
+          sendCalendarNotificationPayload(newEvent, notifyWithImage);
+        }
+
+        showStatus('cal-save-status', 'ok', notifyOnSave
+          ? '✅ ¡Evento guardado en el calendario y notificación enviada!'
+          : '✅ ¡Evento guardado en el calendario!');
+
+        resetCalForm();
+        renderCalendarAdmin();
+      } catch (e) {
+        showStatus('cal-save-status', 'error', `⚠️ Error: ${e.message}`);
+      }
+    }
+
+    function editCalendarEvent(eventId) {
+      const ev = calendarEventsCache.find(e => e.id === eventId);
+      if (!ev) return;
+      document.getElementById('cal-edit-id').value = ev.id;
+      document.getElementById('cal-form-title').textContent = '✏️ Editando evento';
+      document.getElementById('cal-cancel-edit-btn').style.display = 'inline-flex';
+      document.getElementById('cal-date').value = ev.date || '';
+      document.getElementById('cal-time').value = ev.time || '19:00';
+      document.getElementById('cal-title').value = ev.title || '';
+      document.getElementById('cal-description').value = ev.description || '';
+      document.getElementById('cal-is-live').checked = !!ev.isLiveStream;
+      selectCalType(ev.type || 'culto');
+
+      pendingCalImageBase64 = null;
+      document.getElementById('cal-image-file').value = '';
+      document.getElementById('cal-image-url').value = ev.imageUrl || '';
+      updateCalPreviewFromUrl();
+
+      document.getElementById('tab-calendario').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function notifyCalendarEventNow(eventId, withImage) {
+      const ev = calendarEventsCache.find(e => e.id === eventId);
+      if (!ev) return;
+      sendCalendarNotificationPayload(ev, withImage);
+      showStatus('cal-save-status', 'ok', withImage && ev.imageUrl
+        ? `🔔 Notificación CON imagen enviada para "${ev.title}".`
+        : `🔔 Notificación SIN imagen enviada para "${ev.title}".`);
+    }
+
+    async function deleteCalendarEvent(eventId) {
+      if (!confirm('¿Eliminar este evento del calendario?')) return;
+      showStatus('cal-save-status', 'pending', '⏳ Eliminando evento...');
+      try {
+        const { events, sha } = await readCalendarFromGitHub();
+        const filtered = events.filter(e => e.id !== eventId);
+        await writeCalendarToGitHub(filtered, sha, `🗑️ Eliminar evento (${eventId})`);
+        showStatus('cal-save-status', 'ok', '✅ Evento eliminado del calendario.');
+        renderCalendarAdmin();
+      } catch (e) {
+        showStatus('cal-save-status', 'error', `⚠️ Error al eliminar: ${e.message}`);
+      }
+    }
+
+    function renderCalendarAdmin() {
+      const container = document.getElementById('cal-events-list');
+      if (!container) return;
+      if (!calendarEventsCache.length) {
+        container.innerHTML = '<div style="text-align:center; color:#7090c0; padding:16px;">No hay eventos en el calendario todavía.</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      calendarEventsCache.forEach(ev => {
+        const isEsp = ev.type === 'culto_especial';
+        const typeLabel = isEsp ? '✨ Culto Especial' : (ev.type === 'reunion' ? '🤝 Reunión' : '⛪ Culto');
+        const liveBadge = ev.isLiveStream
+          ? '<span class="cal-badge live">🔴 En directo</span>'
+          : '<span class="cal-badge presencial">⛪ Solo presencial</span>';
+
+        const card = document.createElement('div');
+        card.className = 'cal-event-card' + (isEsp ? ' especial' : '');
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div>
+              <div style="font-size:0.82rem; color:#e0b96b; font-weight:700;">📅 ${escapeHtml(formatCalDateEs(ev.date))} · 🕐 ${escapeHtml(ev.time)}h</div>
+              <div style="font-size:1rem; font-weight:700; color:#fff; margin-top:2px;">${escapeHtml(ev.title)}</div>
+            </div>
+          </div>
+          <div class="cal-badges">
+            <span class="cal-badge ${escapeHtml(ev.type || 'culto')}">${typeLabel}</span>
+            ${liveBadge}
+          </div>
+          ${ev.description ? `<div style="font-size:0.84rem; color:#a0b9dc;">${escapeHtml(ev.description)}</div>` : ''}
+          ${ev.imageUrl ? `<img src="${escapeHtml(ev.imageUrl)}" style="width:100%; max-height:170px; object-fit:cover; border-radius:8px; border:1px solid #263654;" />` : ''}
+          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;">
+            <button class="btn-sm btn-edit" onclick="editCalendarEvent('${ev.id}')">✏️ Editar</button>
+            ${ev.imageUrl ? `<button class="btn-sm btn-notify" onclick="notifyCalendarEventNow('${ev.id}', true)">🖼️ Notificar c/img</button>` : ''}
+            <button class="btn-sm btn-notify" onclick="notifyCalendarEventNow('${ev.id}', false)">🔔 Notificar s/img</button>
+            <button class="btn-sm btn-del" onclick="deleteCalendarEvent('${ev.id}')">🗑️ Eliminar</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function loadCalendarAdmin() {
+      initCalDateDefault();
+      const { events } = await readCalendarFromGitHub();
+      calendarEventsCache = events;
+      renderCalendarAdmin();
     }
 
     // ────────────────────────────────────────────
