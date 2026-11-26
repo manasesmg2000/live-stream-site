@@ -82,7 +82,9 @@ open class NotificationAlarmReceiver : BroadcastReceiver() {
                                 val currentId = item.optString("id", "").trim()
                                 val msg = item.optString("message", "").trim()
 
-                                if (currentId.isNotEmpty() && currentId != lastProcessedId) {
+                                if (currentId.isNotEmpty() && msg.startsWith("CALENDAR|")) {
+                                    NotificationHelper.handleCalendarMessage(context, currentId, msg.substring(9))
+                                } else if (currentId.isNotEmpty() && currentId != lastProcessedId) {
                                     if (msg.startsWith("LIVE:")) {
                                         val payload = msg.substring(5)
                                         val parts = payload.split("|")
